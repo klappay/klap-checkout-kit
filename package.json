@@ -1,0 +1,68 @@
+{
+  "name": "@klappay/checkout-kit",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Build a custom Klappay checkout — turn a Charge into what a payment UI needs, and talk to an injected wallet, without reimplementing either.",
+  "keywords": ["klap", "klappay", "checkout", "crypto", "payments", "web3"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/klappay/klap-checkout-kit.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    }
+  },
+  "files": ["dist", "LICENSE", "README.md", "logo.png", "docs"],
+  "scripts": {
+    "build": "rm -rf dist && tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@klappay/node": "^3.0.0",
+    "@klappay/types": "^3.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@changesets/cli": "^2.31.1",
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@types/node": "^24.13.3",
+    "husky": "^9.1.0",
+    "jsdom": "^30.0.1",
+    "lint-staged": "^15.2.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-llms": "^1.13.4",
+    "vitest": "^3.2.6"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
+  }
+}
