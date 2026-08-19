@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@klappay/types": "^3.0.0",
+    "@types/node": "^24.0.0",
     "typescript": "^5.6.0",
     "vue-tsc": "^2.1.0"
   }
