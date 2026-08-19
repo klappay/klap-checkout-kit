@@ -45,8 +45,13 @@ app.get('/api/checkout/:id/events', async (c) => {
 
 `apiKey`/`baseUrl` are both optional as of `@klappay/node@3.1` — omit
 either and it falls back to `process.env.KLAP_API_KEY`/
-`process.env.KLAP_BASE_URL`, so `createCheckoutKit()` with no arguments
-at all works too. See [`docs/node.md`](./docs/node.md#letting-klappay-node-read-klap-api-key-klap-base-url-itself)
+`process.env.KLAP_BASE_URL`, an explicit argument always winning:
+
+```ts
+const checkout = createCheckoutKit() // reads KLAP_API_KEY / KLAP_BASE_URL
+```
+
+See [`docs/node.md`](./docs/node.md#letting-klappay-node-read-klap-api-key-klap-base-url-itself)
 for the full fallback order.
 
 Want a different response shape than `getCheckoutPayload()`'s default?
