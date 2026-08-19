@@ -11,7 +11,7 @@ export default defineConfig({
   head: [['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }]],
 
   vite: {
-    plugins: [llmstxt()],
+    plugins: [llmstxt({ domain: 'https://node-checkout-sdk.klappay.com' })],
   },
 
   themeConfig: {
