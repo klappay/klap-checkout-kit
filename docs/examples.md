@@ -5,6 +5,13 @@ Complete integrations — server routes (`/node`) and client wiring
 against this package's real build output and the real framework's
 types, not illustrative pseudo-code.
 
+Want to clone and run one instead of reading it here? See
+[`examples/`](https://github.com/klappay/klap-checkout-kit/tree/main/examples)
+in the repo — four standalone, `pnpm install && pnpm dev`-ready apps
+covering Hono (no bundler at all), Next.js, SvelteKit, and Nuxt. Each
+always depends on `@klappay/checkout-kit`'s `latest` npm release, so
+they double as a live integration check, not a frozen snapshot.
+
 ## Hono
 
 Mirrors klap-checkout's own `src/app.tsx` — same `serveStatic`,

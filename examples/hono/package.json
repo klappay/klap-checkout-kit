@@ -1,0 +1,22 @@
+{
+  "name": "@klappay/checkout-kit-example-hono",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@klappay/checkout-kit": "latest",
+    "@klappay/node": "^3.1.0",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@klappay/types": "^3.0.0",
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0"
+  }
+}

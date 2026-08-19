@@ -6,9 +6,15 @@ Build your own Klappay checkout UI, without reimplementing the two hard
 parts: turning a `Charge` into what a payment UI needs, and talking to
 an injected wallet. See `CLAUDE.md` for the full rationale.
 
-Full docs (guides + a full checkout-flow walkthrough) live in
-[`docs/`](./docs) — run `pnpm docs:dev` to browse them locally until a
-hosted site exists.
+Full docs (guides + a full checkout-flow walkthrough) live at
+[node-checkout-sdk.klappay.com](https://node-checkout-sdk.klappay.com),
+built from [`docs/`](./docs) — run `pnpm docs:dev` to browse them
+locally instead.
+
+Want a runnable app instead of a doc page? See
+[`examples/`](https://github.com/klappay/klap-checkout-kit/tree/main/examples) —
+Hono (no bundler at all), Next.js, SvelteKit, and Nuxt, each a real
+`pnpm install && pnpm dev` away from running.
 
 ## Install
 

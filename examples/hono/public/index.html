@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>klap-checkout-kit — Hono example</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 3rem auto; padding: 0 1rem; color: #1a1a1a; }
+      h1 { font-size: 1.25rem; }
+      .option { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 0.75rem 0; }
+      .muted { color: #666; font-size: 0.9rem; }
+      code { background: #f2f2f2; padding: 0.15rem 0.35rem; border-radius: 4px; word-break: break-all; }
+      button { cursor: pointer; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #333; background: #fff; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      #status { font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>klap-checkout-kit — Hono, zero-bundler example</h1>
+    <p class="muted">
+      This page loads <code>@klappay/checkout-kit</code> from a plain
+      <code>&lt;script&gt;</code> tag — no bundler, no build step. Charge id comes from
+      <code>?charge=</code>, defaulting to <code>test-id</code> (a real charge id from
+      your own Klappay dashboard will actually resolve).
+    </p>
+
+    <p id="status">Loading…</p>
+    <div id="options"></div>
+
+    <script src="/vendor/checkout-kit/index.global.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -6,3 +6,9 @@ coverage
 .env
 *.log
 .DS_Store
+
+# examples/* are standalone apps that always track @klappay/checkout-kit's
+# "latest" npm dist-tag (see examples/README.md) — a committed lockfile
+# would defeat that. Each example has its own .gitignore for its own
+# build output; this only needs to cover what those don't.
+examples/*/pnpm-lock.yaml
