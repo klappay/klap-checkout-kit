@@ -267,6 +267,10 @@ Same as klap-checkout: no comments in source (this file, not code, is
 where the "why" lives), avoid `as` type assertions except a narrow
 already-validated case, Conventional Commits, reuse before writing.
 
+Commit messages: English, Conventional Commits format, no
+`Co-Authored-By` trailer — this repo's history is human-authored
+commits, agent-assisted or not.
+
 ## Releases (Changesets)
 
 Same flow as `../klap-node`, since this is also a public npm package
