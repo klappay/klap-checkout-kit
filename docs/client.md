@@ -35,6 +35,27 @@ immediately if handed an option with no wallet mapping
 to target a specific provider among several injected ones
 (`window.ethereum.providers`).
 
+```ts
+import { getInjectedProvider } from '@klappay/checkout-kit/client'
+
+if (!getInjectedProvider()) {
+  // no window.ethereum at all — show "install a wallet" instead of a connect button
+} else {
+  const wallet = createWalletPayment(option, payload.address) // uses getInjectedProvider() internally
+}
+```
+
+With multiple wallets installed at once (e.g. MetaMask + Coinbase
+Wallet), `window.ethereum` is whichever one last claimed the slot —
+`window.ethereum.providers` (an array, when present) is how the payer
+picks:
+
+```ts
+const providers = window.ethereum?.providers ?? (window.ethereum ? [window.ethereum] : [])
+const metaMask = providers.find((p) => p.isMetaMask)
+const wallet = createWalletPayment(option, payload.address, metaMask)
+```
+
 `pay()` does the full flow in one call: checks the wallet's current
 chain against `option.chainId` and requests `wallet_switchEthereumChain`
 if they differ, then sends a hand-encoded
@@ -60,10 +81,30 @@ React/Vue/Svelte state.
 `Eip1193Provider` and `WalletPaymentEvents` (both exported) are the
 types behind `provider`/`wallet.on()` above, for typing your own
 provider-selection logic or a wrapper around `wallet.on()`.
+
+### Building your own `eth_sendTransaction` call
+
 `encodeErc20Transfer(to, amountUnits)` is the raw calldata encoder
-`pay()` uses internally — also exported, for anyone building their own
-`eth_sendTransaction` call instead of going through
-`createWalletPayment()`.
+`pay()` uses internally — also exported, for anyone who wants the
+`chainId`/switch-check/send steps under their own control instead of
+going through `createWalletPayment()`:
+
+```ts
+import { encodeErc20Transfer, getInjectedProvider } from '@klappay/checkout-kit/client'
+
+const provider = getInjectedProvider()!
+const data = encodeErc20Transfer(payload.address, option.amountUnits) // '0xa9059cbb...'
+
+const txHash = await provider.request({
+  method: 'eth_sendTransaction',
+  params: [{ from: account, to: option.contractAddress, data }],
+})
+```
+
+No chain-switch check, no status tracking, no `'sent'`/`'error'`
+events — `createWalletPayment()` already does all three; reach for this
+only when you need a transaction shaped differently than `pay()`
+produces.
 
 ### Reconnecting on reload
 

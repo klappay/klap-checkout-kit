@@ -12,6 +12,29 @@ package's API surface needs (`Charge`/`ChargeStatus`/`Network`/`Token`
 included) is importable straight from `@klappay/checkout-kit` itself,
 see [Importing types](/node#importing-types).
 
+## Requirements
+
+`exports` in `package.json` only declares `types`/`import` conditions —
+ESM only, no `require`. If your `tsconfig.json` has
+`"moduleResolution": "node"` (the default below TypeScript 5, and still
+common), subpath imports like `@klappay/checkout-kit/node` fail to
+resolve with:
+
+```
+Cannot find module '@klappay/checkout-kit/node' or its corresponding type declarations.
+```
+
+Fix it by setting `"moduleResolution"` to `"bundler"`, `"node16"`, or
+`"nodenext"` — any of the three resolve `exports` maps correctly:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler"
+  }
+}
+```
+
 ## Two subpaths, one package
 
 ```ts
@@ -42,11 +65,25 @@ const checkout = createCheckoutKit({
 Then expose whatever route your frontend calls to build its UI:
 
 ```ts
+import { KlapApiError } from '@klappay/node'
+
 app.get('/api/checkout/:id', async (c) => {
-  const payload = await checkout.getCheckoutPayload(c.req.param('id'))
-  return c.json(payload)
+  try {
+    const payload = await checkout.getCheckoutPayload(c.req.param('id'))
+    return c.json(payload)
+  } catch (err) {
+    if (err instanceof KlapApiError && err.status === 404) {
+      return c.json({ error: 'charge not found' }, 404)
+    }
+    throw err
+  }
 })
 ```
+
+A nonexistent/deleted `chargeId` makes the underlying `@klappay/node`
+call reject with `KlapApiError` (`status`/`code`/`message`, from
+`@klappay/node` directly — not re-exported from this package since it's
+already a dependency you can import yourself).
 
 `payload` is a `CheckoutPayload` — a curated, JSON-safe subset of the
 raw `Charge` (no `apiKeyId`/`metadata`/other merchant bookkeeping),

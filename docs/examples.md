@@ -15,6 +15,7 @@ just pointed at `@klappay/checkout-kit` instead of hand-rolled logic:
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
+import { KlapApiError } from '@klappay/node'
 import {
   constructWebhookEvent,
   createCheckoutKit,
@@ -40,8 +41,15 @@ app.use(
 )
 
 app.get('/api/checkout/:id', async (c) => {
-  const payload = await checkout.getCheckoutPayload(c.req.param('id'))
-  return c.json(payload)
+  try {
+    const payload = await checkout.getCheckoutPayload(c.req.param('id'))
+    return c.json(payload)
+  } catch (err) {
+    if (err instanceof KlapApiError && err.status === 404) {
+      return c.json({ error: 'charge not found' }, 404)
+    }
+    throw err
+  }
 })
 
 app.get('/api/checkout/:id/events', (c) => {
@@ -116,13 +124,21 @@ export const checkout = createCheckoutKit({
 `app/api/checkout/[id]/route.ts`:
 
 ```ts
+import { KlapApiError } from '@klappay/node'
 import { NextResponse } from 'next/server'
 import { checkout } from '@/lib/checkout-kit'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const payload = await checkout.getCheckoutPayload(id)
-  return NextResponse.json(payload)
+  try {
+    const payload = await checkout.getCheckoutPayload(id)
+    return NextResponse.json(payload)
+  } catch (err) {
+    if (err instanceof KlapApiError && err.status === 404) {
+      return NextResponse.json({ error: 'charge not found' }, { status: 404 })
+    }
+    throw err
+  }
 }
 ```
 

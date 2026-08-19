@@ -38,6 +38,51 @@ Returns:
 
 ## The `CheckoutPayload` shape
 
+A real `getCheckoutPayload()` response — a pending **test**-environment
+charge accepting USDC on two networks, one of them (`polygon`) with no
+wallet mapping yet because this package's `CHAIN_IDS` table
+(`src/node/wallet-payment.ts`) only has a `live` chain ID for `polygon`,
+not a `test` one:
+
+```json
+{
+  "id": "ch_9f2a1c",
+  "status": "pending",
+  "settlementStatus": null,
+  "amount": 49.9,
+  "amountReceived": null,
+  "isOverpaid": false,
+  "currency": "USD",
+  "environment": "test",
+  "address": "0xAbC123...",
+  "expiresAt": "2026-08-19T15:00:00.000Z",
+  "redirectUrl": "https://your-store.com/orders/1234/thank-you",
+  "paidWith": [],
+  "paymentOptions": [
+    {
+      "token": "USDC",
+      "network": "base",
+      "chainId": 84532,
+      "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "amountUnits": "49900000"
+    },
+    {
+      "token": "USDC",
+      "network": "polygon",
+      "chainId": null,
+      "contractAddress": null,
+      "amountUnits": "49900000"
+    }
+  ]
+}
+```
+
+The `polygon` entry is still fully payable — just not by wallet
+(`isWalletPayable()` returns `false` for it); render `payload.address`
+directly for that pair instead of a wallet-connect button.
+
+The type behind that shape:
+
 ```ts
 type CheckoutPayload = {
   id: string

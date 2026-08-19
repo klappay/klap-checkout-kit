@@ -26,6 +26,7 @@ const charge = await klap.charges.create({
 ## 2. Expose a checkout route
 
 ```ts
+import { KlapApiError } from '@klappay/node'
 import { createCheckoutKit } from '@klappay/checkout-kit/node'
 
 const checkout = createCheckoutKit({
@@ -34,7 +35,14 @@ const checkout = createCheckoutKit({
 })
 
 app.get('/api/checkout/:id', async (c) => {
-  return c.json(await checkout.getCheckoutPayload(c.req.param('id')))
+  try {
+    return c.json(await checkout.getCheckoutPayload(c.req.param('id')))
+  } catch (err) {
+    if (err instanceof KlapApiError && err.status === 404) {
+      return c.json({ error: 'charge not found' }, 404)
+    }
+    throw err
+  }
 })
 
 app.get('/api/checkout/:id/events', async (c) => {
