@@ -25,7 +25,7 @@ import {
 
 const checkout = createCheckoutKit({
   apiKey: process.env.KLAP_API_KEY!,
-  baseUrl: process.env.KLAP_API_BASE_URL!,
+  baseUrl: process.env.KLAP_BASE_URL!,
 })
 
 const app = new Hono()
@@ -117,7 +117,7 @@ import { createCheckoutKit } from '@klappay/checkout-kit/node'
 
 export const checkout = createCheckoutKit({
   apiKey: process.env.KLAP_API_KEY!,
-  baseUrl: process.env.KLAP_API_BASE_URL!,
+  baseUrl: process.env.KLAP_BASE_URL!,
 })
 ```
 

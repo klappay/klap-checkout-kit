@@ -13,7 +13,7 @@ this package starts from an existing `chargeId`:
 ```ts
 import { createClient } from '@klappay/node'
 
-const klap = createClient({ apiKey: process.env.KLAP_API_KEY!, baseUrl: process.env.KLAP_API_BASE_URL! })
+const klap = createClient({ apiKey: process.env.KLAP_API_KEY!, baseUrl: process.env.KLAP_BASE_URL! })
 
 const charge = await klap.charges.create({
   amount: 49.9,
@@ -31,7 +31,7 @@ import { createCheckoutKit } from '@klappay/checkout-kit/node'
 
 const checkout = createCheckoutKit({
   apiKey: process.env.KLAP_API_KEY!,
-  baseUrl: process.env.KLAP_API_BASE_URL!,
+  baseUrl: process.env.KLAP_BASE_URL!,
 })
 
 app.get('/api/checkout/:id', async (c) => {

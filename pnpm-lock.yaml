@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@klappay/node':
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^3.1.0
+        version: 3.1.0
       '@klappay/types':
         specifier: ^3.0.0
         version: 3.0.0
@@ -901,8 +901,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@klappay/node@3.0.0':
-    resolution: {integrity: sha512-hSlZZvI90eXQ7iV9NCTWr718HKfD/8btQilbNXP4zR5NhtvB332iyFnQsuE6cNg/+TnZpNcl1T2J5YwTZrZxqg==}
+  '@klappay/node@3.1.0':
+    resolution: {integrity: sha512-QBEXUU+SPclOvDtxwvErohn9xc637CviU8ubV7933PTsXxWPHOUrPVFGwYrxQuhXaaWVOnRMM1DL/IrI3O/ltA==}
     engines: {node: '>=24'}
 
   '@klappay/types@3.0.0':
@@ -3586,7 +3586,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@klappay/node@3.0.0':
+  '@klappay/node@3.1.0':
     dependencies:
       '@klappay/types': 3.0.0
 

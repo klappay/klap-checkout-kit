@@ -14,7 +14,7 @@ import { createCheckoutKit } from '@klappay/checkout-kit/node'
 
 const checkout = createCheckoutKit({
   apiKey: process.env.KLAP_API_KEY!,
-  baseUrl: process.env.KLAP_API_BASE_URL!,
+  baseUrl: process.env.KLAP_BASE_URL!,
 })
 
 // or, if you already built a @klappay/node client elsewhere:
@@ -22,8 +22,31 @@ const checkout = createCheckoutKit({ client: existingKlapClient })
 ```
 
 `options` is `CreateCheckoutKitOptions` (also exported, for typing your
-own wrapper around this call) — either `{ apiKey, baseUrl }` or
-`{ client }`, never both.
+own wrapper around this call) — `CreateClientOptions` (re-exported from
+`@klappay/node`, both fields optional) or `{ client }`, never both.
+
+### Letting `@klappay/node` read `KLAP_API_KEY`/`KLAP_BASE_URL` itself
+
+Since `@klappay/node@3.1`, `createClient()` falls back to
+`process.env.KLAP_API_KEY`/`process.env.KLAP_BASE_URL` for any field
+you omit — `createCheckoutKit()` passes `options` straight through, so
+that fallback works here too. With both env vars set, this is
+equivalent to the explicit call above:
+
+```ts
+const checkout = createCheckoutKit() // reads KLAP_API_KEY / KLAP_BASE_URL
+```
+
+Nothing is validated eagerly — an omitted `apiKey`/`baseUrl` with no
+matching env var set doesn't throw until the first actual request
+(`MissingCredentialError`/`MissingBaseUrlError`, both from
+`@klappay/node`), same as passing them explicitly. An explicit argument
+always wins over its env var. `createCheckoutKit()` only ever touches
+`client.charges`, which also accepts its own, more specific
+`KLAP_CHARGES_API_KEY` as a fallback below `KLAP_API_KEY` — handy if
+your charges key is scoped narrower than the rest of your Klappay
+integration. See `@klappay/node`'s own docs if you're reaching for
+`checkout.client` directly and want the full per-resource env var list.
 
 Returns:
 

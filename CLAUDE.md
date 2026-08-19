@@ -121,6 +121,19 @@ reachable underneath it.
 to reach a payer's browser by default. `getCharge(chargeId)` is exported
 too for anyone who wants the full raw `Charge` instead.
 
+`CreateCheckoutKitOptions` is `CreateClientOptions` (re-exported from
+`@klappay/node`, not hand-duplicated) `| { client }` — reuse before
+writing applies to the option type too, not just the logic. This is
+what makes `@klappay/node@3.1`'s `KLAP_API_KEY`/`KLAP_BASE_URL` env-var
+fallback (`createClient()` falling back to `process.env` for whichever
+of `apiKey`/`baseUrl` is omitted, an explicit arg always winning) work
+here for free — `createCheckoutKit()` just forwards `options` straight
+into `createClient()`, so the moment upstream's `CreateClientOptions`
+gained optional fields, so did ours, with no separate opt-in needed on
+this side. `options` itself now defaults to `{}` so
+`createCheckoutKit()` with zero arguments is valid too, matching
+upstream's own `createClient()` signature.
+
 ## QR codes: no round-trip needed
 
 Core's `/v1/charges/{id}/qrcode` exists and works (proxied by

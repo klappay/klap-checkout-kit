@@ -1,5 +1,5 @@
 import { createClient } from '@klappay/node'
-import type { KlapClient } from '@klappay/node'
+import type { CreateClientOptions, KlapClient } from '@klappay/node'
 import type { Charge } from '@klappay/types'
 import type { CheckoutPayload } from '../types'
 import { watchCheckout } from './events'
@@ -8,11 +8,11 @@ import { toCheckoutPayload } from './payload'
 
 assertServerOnly('checkout')
 
-export type CreateCheckoutKitOptions = { apiKey: string; baseUrl: string } | { client: KlapClient }
+export type CreateCheckoutKitOptions = CreateClientOptions | { client: KlapClient }
 
 export { toCheckoutPayload }
 
-export function createCheckoutKit(options: CreateCheckoutKitOptions) {
+export function createCheckoutKit(options: CreateCheckoutKitOptions = {}) {
   const client = 'client' in options ? options.client : createClient(options)
 
   return {

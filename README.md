@@ -23,7 +23,7 @@ import { createCheckoutKit } from '@klappay/checkout-kit/node'
 
 const checkout = createCheckoutKit({
   apiKey: process.env.KLAP_API_KEY!,
-  baseUrl: process.env.KLAP_API_BASE_URL!,
+  baseUrl: process.env.KLAP_BASE_URL!,
 })
 
 // Route your frontend calls to build its own UI from:
@@ -42,6 +42,12 @@ app.get('/api/checkout/:id/events', async (c) => {
   })
 })
 ```
+
+`apiKey`/`baseUrl` are both optional as of `@klappay/node@3.1` — omit
+either and it falls back to `process.env.KLAP_API_KEY`/
+`process.env.KLAP_BASE_URL`, so `createCheckoutKit()` with no arguments
+at all works too. See [`docs/node.md`](./docs/node.md#letting-klappay-node-read-klap-api-key-klap-base-url-itself)
+for the full fallback order.
 
 Want a different response shape than `getCheckoutPayload()`'s default?
 Compose it yourself from the same pieces it's built from:

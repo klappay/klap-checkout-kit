@@ -44,7 +44,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@klappay/node": "^3.0.0",
+    "@klappay/node": "^3.1.0",
     "@klappay/types": "^3.0.0"
   },
   "devDependencies": {
