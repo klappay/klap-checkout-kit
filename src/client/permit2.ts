@@ -1,32 +1,6 @@
-import type { AltToken, Network } from '../types'
+import { ALT_TOKEN_ADDRESSES, ALT_TOKEN_DECIMALS, CHAIN_IDS } from '@klappay/types/constants'
 
-export const SWAP_CHAIN_IDS: Record<Network, number> = {
-  base: 8453,
-  optimism: 10,
-  ethereum: 1,
-  polygon: 137,
-  arbitrum: 42161,
-  avalanche: 43114,
-  bnb: 56,
-}
-
-export const ALT_TOKEN_ADDRESSES: Partial<
-  Record<Network, Partial<Record<AltToken, `0x${string}`>>>
-> = {
-  base: { BTC: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf' },
-  optimism: { BTC: '0x68f180fcCe6836688e9084f035309E29Bf0A2095' },
-  ethereum: { BTC: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' },
-  arbitrum: { BTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' },
-  polygon: { BTC: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6' },
-}
-
-export const ALT_TOKEN_DECIMALS: Record<AltToken, number> = {
-  ETH: 18,
-  BNB: 18,
-  MATIC: 18,
-  AVAX: 18,
-  BTC: 8,
-}
+export { ALT_TOKEN_ADDRESSES, ALT_TOKEN_DECIMALS, CHAIN_IDS }
 
 export const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA'
 

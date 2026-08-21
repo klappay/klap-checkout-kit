@@ -255,4 +255,13 @@ describe('createSwapPayment', () => {
       params: [{ chainId: '0x2105' }],
     })
   })
+
+  it('rejects a malformed quote whose permit2 input resolves to a native-currency entry', async () => {
+    const malformedQuote: SwapQuote = { ...permit2Quote, inputToken: 'ETH' }
+    const provider = makeProvider(sufficientAllowanceRequest())
+    const swap = createSwapPayment(malformedQuote, provider)
+    await swap.connect()
+
+    await expect(swap.pay()).rejects.toThrow(/no erc-20 address mapping/i)
+  })
 })

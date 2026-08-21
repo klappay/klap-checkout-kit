@@ -1,16 +1,7 @@
+import { NETWORK_EXPLORERS } from '@klappay/types/constants'
 import type { Network } from '../types'
 
 export type ConfirmingRecord = { network: Network; startedAt: number; txHash: string | null }
-
-const NETWORK_EXPLORERS: Record<Network, string> = {
-  base: 'https://basescan.org',
-  optimism: 'https://optimistic.etherscan.io',
-  polygon: 'https://polygonscan.com',
-  ethereum: 'https://etherscan.io',
-  arbitrum: 'https://arbiscan.io',
-  avalanche: 'https://snowtrace.io',
-  bnb: 'https://bscscan.com',
-}
 
 const TIMEOUT_MS: Record<Network, number> = {
   ethereum: 15 * 60 * 1000,

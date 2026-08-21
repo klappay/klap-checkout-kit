@@ -179,47 +179,39 @@ package exists to avoid elsewhere (see `CHAIN_IDS` below). Re-exporting
 just saves an integrator a second import from a package they may not
 otherwise touch directly.
 
-## Known duplication (not fixed here, flagged for whoever touches this next)
+## Network/token constants: imported, not hand-duplicated
 
-The `CHAIN_IDS` table in `src/node/wallet-payment.ts` re-encodes
-network→chainId facts that already exist, hand-duplicated, in two other
-places: klap-core's `src/modules/blockchain/moralis.client.ts`
-(`CHAIN_ID_TO_NETWORK`, a reverse hex-keyed map with the same values)
-and `src/modules/blockchain/evm.ts` (`CHAINS`, sourced from viem's own
-`Chain` objects rather than a hand-typed table) — plus klap-checkout's
-own `wallet-payment.ts` this was ported from. `@klappay/types` has no
-canonical export for it yet (`networks.ts` only has
-`NETWORK_LABELS`/`NETWORK_EXPLORERS`/`EVM_NETWORKS`/
-`OPERATIONAL_NETWORKS`). Worth promoting into `@klappay/types` as a real
-fix; not done here since that touches a different repo.
+This used to be a "known duplication, fix it upstream someday" section —
+as of `@klappay/types@3.1.0` that fix landed for real, so this documents
+the resolved state instead (see git history on this section for the
+prior duplication writeup, if that context is ever needed again).
 
-`src/client/confirming.ts`'s `NETWORK_EXPLORERS` joined this same
-tradeoff — it's now hand-copied too, deliberately, instead of imported
-from `@klappay/types`. Not a duplication regression: it's the same
-package-boundary reasoning as `CHAIN_IDS`, just discovered later, via
-the IIFE build (see "Client build: ESM and IIFE" above) — importing one
-constant at runtime from a `zod`-based package with no
-`sideEffects: false` and no `/* @__PURE__ */` markers on its schema
-constructors means a bundler can't prove the other ~30 unrelated
-schemas are safe to drop, so it inlines all of them (plus zod itself)
-rather than risk it: measured 188KB for what should've been a ~4KB
-file. Hand-copying the one object `/client` actually needs sidesteps
-the whole tree-shaking gamble — and as a side effect, makes
-`@klappay/types` a type-only dependency of `/client` (every remaining
-reference is `import type`, erased at compile time, zero runtime
-footprint regardless of how aggressive any consumer's own bundler is).
+`@klappay/types@3.1.0` added a canonical `CHAIN_IDS` export
+(`networks.ts`, alongside the pre-existing `NETWORK_LABELS`/
+`NETWORK_EXPLORERS`) and — critically for `/client` — a zero-zod
+`@klappay/types/constants` subpath (`package.json` now has
+`"sideEffects": false`, and every pure constant lives in its own
+`*.constants.ts` file, split out from the file holding its zod schema).
+`src/node/wallet-payment.ts` imports `CHAIN_IDS`/`TOKEN_ADDRESSES`/
+`TOKEN_DECIMALS` straight from `@klappay/types` (the main export — no
+bundle-size concern server-side, so no reason to reach for the
+`/constants` subpath there). `src/client/permit2.ts` and
+`src/client/confirming.ts` import `CHAIN_IDS`/`ALT_TOKEN_ADDRESSES`/
+`ALT_TOKEN_DECIMALS`/`NETWORK_EXPLORERS` from `@klappay/types/constants`
+instead — measured with a real `esbuild` bundle of just
+`ALT_TOKEN_ADDRESSES`: 585 bytes, versus ~188KB (all ~30 unrelated zod
+schemas plus zod itself) importing the exact same constant from the
+main `.` export used to cost, back when this was still a duplicated
+local copy. The full `/client` IIFE build stayed flat at ~7.3KB across
+this whole swap — confirms the fix holds through the real `tsup`
+pipeline, not just a synthetic bundle.
 
-`src/client/permit2.ts`'s `SWAP_CHAIN_IDS` and `ALT_TOKEN_ADDRESSES` are
-a third copy of the same two tables (`CHAIN_IDS` already duplicated
-once in `src/node/wallet-payment.ts`; `ALT_TOKEN_ADDRESSES` from
-`@klappay/types`, same tree-shaking reasoning as `NETWORK_EXPLORERS`
-above) — this one collapses `CHAIN_IDS` to `Record<Network, number>`
-with no `Environment` dimension at all (named `SWAP_CHAIN_IDS`, not
-`CHAIN_IDS`, so the missing dimension is visible from the name alone),
-since a `SwapQuote` is only ever issued for a `live` charge (0x has no
-testnet — see `swap-quote.ts` in klap-core). Don't "fix" this by
-importing the node-side `CHAIN_IDS` into `/client`; that's exactly the
-boundary this file exists to avoid crossing.
+`src/client/permit2.ts`'s `CHAIN_IDS` collapses the `Environment`
+dimension at each call site (`CHAIN_IDS[network]?.live`), never `?.test`
+— a `SwapQuote` is only ever issued for a `live` charge (0x has no
+testnet — see `swap-quote.ts` in klap-core), so swap-to-pay never needs
+the `test` half of the table. `src/node/wallet-payment.ts` uses both
+halves, keyed off `charge.environment`.
 
 ## Every accepted pair is returned, not just wallet-payable ones
 

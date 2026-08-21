@@ -3,9 +3,9 @@ import { createEmitter } from './emitter'
 import {
   ALT_TOKEN_ADDRESSES,
   ALT_TOKEN_DECIMALS,
+  CHAIN_IDS,
   MAX_UINT256,
   PERMIT2_ADDRESS,
-  SWAP_CHAIN_IDS,
   appendPermit2Signature,
   encodeErc20Allowance,
   encodeErc20Approve,
@@ -68,10 +68,11 @@ export function createSwapPayment(
   if (!injectedProvider) {
     throw new Error('No EIP-1193 wallet provider found — is a browser wallet extension installed?')
   }
-  const chainId = SWAP_CHAIN_IDS[quote.inputNetwork]
-  if (!chainId) {
+  const liveChainId = CHAIN_IDS[quote.inputNetwork]?.live
+  if (!liveChainId) {
     throw new Error(`No chain mapping for ${quote.inputNetwork}.`)
   }
+  const chainId = liveChainId
   const provider = injectedProvider
 
   let account: string | null = null
@@ -114,7 +115,7 @@ export function createSwapPayment(
   async function ensureAllowance(owner: string): Promise<void> {
     if (!quote.permit2) return
     const tokenAddress = ALT_TOKEN_ADDRESSES[quote.inputNetwork]?.[quote.inputToken]
-    if (!tokenAddress) {
+    if (!tokenAddress || tokenAddress === 'native') {
       throw new Error(`No ERC-20 address mapping for ${quote.inputToken} on ${quote.inputNetwork}.`)
     }
 
