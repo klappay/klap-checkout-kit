@@ -1,4 +1,10 @@
-import type { AcceptedPayment, ChargeStatus, Environment, SettlementStatus } from '@klappay/types'
+import type {
+  AcceptedPayment,
+  ChargeStatus,
+  Environment,
+  SettlementStatus,
+  SwapAlternative,
+} from '@klappay/types'
 
 export type PaymentOption = AcceptedPayment & {
   chainId: number | null
@@ -20,6 +26,7 @@ export type CheckoutPayload = {
   redirectUrl: string | null
   paidWith: AcceptedPayment[]
   paymentOptions: PaymentOption[]
+  swapAlternatives: SwapAlternative[]
 }
 
 export const OPEN_STATUSES: ReadonlySet<ChargeStatus> = new Set(['pending', 'partially_paid'])
@@ -34,10 +41,14 @@ export function isWalletPayable(option: PaymentOption): boolean {
 
 export type {
   AcceptedPayment,
+  AltToken,
   Charge,
   ChargeStatus,
+  CreateSwapQuoteInput,
   Environment,
   Network,
   SettlementStatus,
+  SwapAlternative,
+  SwapQuote,
   Token,
 } from '@klappay/types'

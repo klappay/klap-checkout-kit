@@ -209,6 +209,18 @@ the whole tree-shaking gamble — and as a side effect, makes
 reference is `import type`, erased at compile time, zero runtime
 footprint regardless of how aggressive any consumer's own bundler is).
 
+`src/client/permit2.ts`'s `SWAP_CHAIN_IDS` and `ALT_TOKEN_ADDRESSES` are
+a third copy of the same two tables (`CHAIN_IDS` already duplicated
+once in `src/node/wallet-payment.ts`; `ALT_TOKEN_ADDRESSES` from
+`@klappay/types`, same tree-shaking reasoning as `NETWORK_EXPLORERS`
+above) — this one collapses `CHAIN_IDS` to `Record<Network, number>`
+with no `Environment` dimension at all (named `SWAP_CHAIN_IDS`, not
+`CHAIN_IDS`, so the missing dimension is visible from the name alone),
+since a `SwapQuote` is only ever issued for a `live` charge (0x has no
+testnet — see `swap-quote.ts` in klap-core). Don't "fix" this by
+importing the node-side `CHAIN_IDS` into `/client`; that's exactly the
+boundary this file exists to avoid crossing.
+
 ## Every accepted pair is returned, not just wallet-payable ones
 
 `resolvePaymentOptions()` returns one `PaymentOption` per
@@ -224,6 +236,72 @@ whether to show a wallet-connect button for a given option;
 `createWalletPayment()` throws immediately if handed a non-wallet-payable
 option, so that mistake fails loudly instead of producing a broken
 `eth_sendTransaction` call.
+
+## Swap-to-pay: a third payment path, ported without a klap-checkout reference
+
+`charge.swapAlternatives` (surfaced on `CheckoutPayload`) and
+`createCheckoutKit().getSwapQuote(chargeId, input)` (a thin proxy to
+`client.charges.getQuote()`, same shape as `getCharge()`/`getQrCode()`)
+let a payer settle a charge with a crypto it doesn't actually accept —
+ETH/BNB/MATIC/AVAX/BTC swapped via 0x into whatever stablecoin the
+charge does accept, output delivered straight to the charge's own
+`address`. There is no persisted `Quote` — `SwapQuote` is a stateless,
+on-demand computation against an existing charge (see klap-core's
+`src/modules/payments/swap-quote.ts`); `expiresAt` is a ~30s UI
+countdown hint only, not what enforces the price (the on-chain
+transaction itself does, via a signed Permit2 deadline or a
+minimum-output check).
+
+Unlike every other client-side piece in this package,
+`src/client/swap.ts`'s `createSwapPayment()` is **not** a port of
+existing klap-checkout code — klap-checkout's own hosted UI hadn't
+implemented swap-to-pay client-side when this was written (checked:
+no `swap`/`permit2`/0x reference anywhere in its `public/*.js`). The
+flow was built directly from 0x's own documented Permit2 guide
+(`docs.0x.org/evm/0x-swap-api/guides/permit2/...`) instead:
+
+1. If `quote.permit2` is absent (native-currency input — ETH/BNB/MATIC/
+   AVAX), `quote.transaction` is submit-ready as-is — send it and done.
+2. If `quote.permit2` is present (ERC-20 input — today only `BTC`),
+   Permit2 still needs a real on-chain `approve(PERMIT2_ADDRESS,
+   maxUint256)` from the payer at least once per (wallet, token) pair
+   before any signature-only transfer works — Permit2 pulls funds via a
+   plain `transferFrom` under the hood, the signature only authorizes
+   *which* transfer, not the allowance itself. `createSwapPayment()`
+   checks `allowance(owner, PERMIT2_ADDRESS)` via `eth_call` first and
+   only sends the `approve` (and waits for its receipt —
+   `APPROVAL_POLL_INTERVAL_MS`/`APPROVAL_POLL_MAX_ATTEMPTS`, a fixed
+   2-minute ceiling) when it's actually short. `SwapQuote` doesn't
+   surface an allowance hint the way 0x's raw `/quote` response does
+   (no `issues.allowance` field on our schema) — this check is done
+   independently, client-side, every time.
+3. The Permit2 EIP-712 message (`quote.permit2.eip712`) is signed via
+   `eth_signTypedData_v4`, then appended to `transaction.data` as a
+   32-byte big-endian signature length followed by the raw signature —
+   the exact byte-packing 0x's docs specify, unit-tested directly
+   (`appendPermit2Signature` in `src/client/permit2.test.ts`) since
+   getting this wrong silently produces a transaction that reverts or
+   moves the wrong amount.
+
+`src/client/permit2.ts` holds every pure piece `createSwapPayment()`
+needs (the network/token tables above, the ERC-20 `allowance`/`approve`
+calldata encoders, `appendPermit2Signature`) — no `Eip1193Provider`, no
+I/O, fully unit-testable in isolation. `swap.ts` itself is the stateful
+orchestration: `pay()`'s chain-switch → allowance-check → approve (if
+short) → sign → send sequence, plus the status machine driving it.
+
+`createWalletPayment()` and `createSwapPayment()` share their
+event-emitter (`listeners`/`emit`/`on`) and `accountsChanged` wiring —
+both extracted into `src/client/emitter.ts`'s `createEmitter<Events>()`
+and `wallet.ts`'s own `watchAccountChanges()` once `swap.ts` needed the
+exact same ~25 lines a second time (verbatim, not just similar-shaped).
+`connect()`/`reconnect()`/`pay()` stay one-off per controller, though —
+each wraps its own provider calls in a `setStatus()`/`try`/`catch`
+specific to its own status union (`WalletStatus` vs
+`SwapPaymentStatus`), and swap's `pay()` has real extra steps
+(`ensureAllowance()`) a shared body would have to special-case around,
+so forcing those into one generic function would trade a small
+duplication for a harder-to-read abstraction — not a net win.
 
 ## Status and redirect helpers
 
@@ -255,18 +333,26 @@ same as klap-checkout's `ResolvedPanel`.
   `4902`) — same gap klap-checkout's own `wallet.js` has. Matters more
   here than in klap-checkout, since this package also resolves
   polygon/arbitrum/avalanche/bnb, networks a default wallet is less
-  likely to have preloaded than base/optimism/ethereum.
+  likely to have preloaded than base/optimism/ethereum. Applies equally
+  to `createSwapPayment()`'s chain switch.
 - **`error.code === 4001` (user-rejected) is not specially classified**
   — `pay()` just re-throws/emits the raw provider error, `error.code`
   is still inspectable by the caller. No UI copy belongs in this
   package; classifying and messaging it is left to the integrator.
+- **No re-quote-on-expiry for swap-to-pay.** `createSwapPayment()` takes
+  a `SwapQuote` as a fixed input and doesn't watch its `expiresAt` —
+  submitting a stale quote either reverts on-chain or 0x/the Settler
+  handles it, never silently executes at a bad rate (see "Swap-to-pay"
+  above), but the UX of "quote expired, fetch a new one and retry" is
+  left entirely to the integrator, same as `error.code === 4001`.
 
 ## Test discipline
 
 Same standard as klap-checkout: a test has to exercise real
 behavior/branching and would fail if the logic broke. Pure logic
 (`wallet-payment.ts`, `payment-uri.ts`, `client/confirming.ts`,
-`client/wallet.ts`) is fully unit-tested with real fixtures (see
+`client/wallet.ts`, `client/permit2.ts`, `client/emitter.ts`) is fully
+unit-tested with real fixtures (see
 `src/node/wallet-payment.test.ts` for the `Charge` fixture shape,
 mirroring klap-checkout's own `src/test/charge-fixture.ts`). DOM-only
 tests (`localStorage`) opt into `// @vitest-environment jsdom` per file

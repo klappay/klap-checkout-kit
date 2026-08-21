@@ -11,6 +11,7 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
     currency: 'USD',
     acceptedPayments: [{ token: 'USDC', network: 'base' }],
     paidWith: [],
+    swapAlternatives: [],
     address: '0xabc0000000000000000000000000000000000abc',
     status: 'pending',
     settlementStatus: null,
@@ -46,5 +47,12 @@ describe('toCheckoutPayload', () => {
       makeCharge({ redirectUrl: 'https://merchant.example/thanks' }),
     )
     expect(payload.redirectUrl).toBe('https://merchant.example/thanks')
+  })
+
+  it('passes swapAlternatives through so an integrator can offer swap-to-pay', () => {
+    const payload = toCheckoutPayload(
+      makeCharge({ swapAlternatives: [{ token: 'ETH', network: 'base' }] }),
+    )
+    expect(payload.swapAlternatives).toEqual([{ token: 'ETH', network: 'base' }])
   })
 })

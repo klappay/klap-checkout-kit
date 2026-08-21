@@ -1,9 +1,28 @@
 import { encodeErc20Transfer } from '../payment-uri'
 import type { PaymentOption } from '../types'
+import { createEmitter } from './emitter'
 
 export type Eip1193Provider = {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>
   on?(event: string, listener: (...args: unknown[]) => void): void
+}
+
+export function providerRequest<T>(
+  provider: Eip1193Provider,
+  method: string,
+  params?: unknown[],
+): Promise<T> {
+  return provider.request({ method, params }) as Promise<T>
+}
+
+export function watchAccountChanges(
+  provider: Eip1193Provider,
+  onChange: (account: string | null) => void,
+): void {
+  if (typeof provider.on !== 'function') return
+  provider.on('accountsChanged', (accounts) => {
+    onChange(Array.isArray(accounts) ? ((accounts[0] as string | undefined) ?? null) : null)
+  })
 }
 
 export type WalletStatus = 'idle' | 'connecting' | 'paying' | 'sent' | 'error'
@@ -39,42 +58,22 @@ export function createWalletPayment(
 
   let account: string | null = null
   let status: WalletStatus = 'idle'
-  const listeners = new Map<keyof WalletPaymentEvents, Set<(...args: never[]) => void>>()
-
-  function emit<K extends keyof WalletPaymentEvents>(
-    event: K,
-    ...args: Parameters<WalletPaymentEvents[K]>
-  ): void {
-    for (const listener of listeners.get(event) ?? [])
-      (listener as (...a: unknown[]) => void)(...args)
-  }
-
-  function on<K extends keyof WalletPaymentEvents>(
-    event: K,
-    listener: WalletPaymentEvents[K],
-  ): () => void {
-    const set = listeners.get(event) ?? new Set()
-    set.add(listener as (...args: never[]) => void)
-    listeners.set(event, set)
-    return () => set.delete(listener as (...args: never[]) => void)
-  }
+  const { emit, on } = createEmitter<WalletPaymentEvents>()
 
   function setStatus(next: WalletStatus): void {
     status = next
     emit('status', next)
   }
 
-  if (typeof provider.on === 'function') {
-    provider.on('accountsChanged', (accounts) => {
-      account = Array.isArray(accounts) ? ((accounts[0] as string | undefined) ?? null) : null
-      emit('account', account)
-    })
-  }
+  watchAccountChanges(provider, (next) => {
+    account = next
+    emit('account', account)
+  })
 
   async function connect(): Promise<string> {
     setStatus('connecting')
     try {
-      const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[]
+      const accounts = await providerRequest<string[]>(provider, 'eth_requestAccounts')
       account = accounts[0] ?? null
       emit('account', account)
       if (!account) throw new Error('Wallet returned no account.')
@@ -88,7 +87,7 @@ export function createWalletPayment(
   }
 
   async function reconnect(): Promise<string | null> {
-    const accounts = (await provider.request({ method: 'eth_accounts' })) as string[]
+    const accounts = await providerRequest<string[]>(provider, 'eth_accounts')
     account = accounts[0] ?? null
     emit('account', account)
     return account
@@ -100,24 +99,20 @@ export function createWalletPayment(
 
     try {
       const targetChainIdHex = `0x${chainId.toString(16)}`
-      const currentChainIdHex = (await provider.request({ method: 'eth_chainId' })) as string
+      const currentChainIdHex = await providerRequest<string>(provider, 'eth_chainId')
       if (currentChainIdHex.toLowerCase() !== targetChainIdHex.toLowerCase()) {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: targetChainIdHex }],
-        })
+        await providerRequest(provider, 'wallet_switchEthereumChain', [
+          { chainId: targetChainIdHex },
+        ])
       }
 
-      const txHash = (await provider.request({
-        method: 'eth_sendTransaction',
-        params: [
-          {
-            from: account,
-            to: contractAddress,
-            data: encodeErc20Transfer(recipientAddress, option.amountUnits),
-          },
-        ],
-      })) as string
+      const txHash = await providerRequest<string>(provider, 'eth_sendTransaction', [
+        {
+          from: account,
+          to: contractAddress,
+          data: encodeErc20Transfer(recipientAddress, option.amountUnits),
+        },
+      ])
       setStatus('sent')
       emit('sent', txHash)
       return txHash

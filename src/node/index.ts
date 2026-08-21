@@ -2,13 +2,17 @@ export { buildPaymentUri, encodeErc20Transfer } from '../payment-uri'
 export { isOpenStatus, isWalletPayable, OPEN_STATUSES } from '../types'
 export type {
   AcceptedPayment,
+  AltToken,
   Charge,
   CheckoutPayload,
   ChargeStatus,
+  CreateSwapQuoteInput,
   Environment,
   Network,
   PaymentOption,
   SettlementStatus,
+  SwapAlternative,
+  SwapQuote,
   Token,
 } from '../types'
 export { createCheckoutKit } from './checkout'

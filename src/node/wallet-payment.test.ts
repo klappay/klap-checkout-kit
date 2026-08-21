@@ -11,6 +11,7 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
     currency: 'USD',
     acceptedPayments: [{ token: 'USDC', network: 'base' }],
     paidWith: [],
+    swapAlternatives: [],
     address: '0xabc0000000000000000000000000000000000abc',
     status: 'pending',
     settlementStatus: null,

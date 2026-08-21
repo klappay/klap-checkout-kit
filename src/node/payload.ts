@@ -17,5 +17,6 @@ export function toCheckoutPayload(charge: Charge): CheckoutPayload {
     redirectUrl: charge.redirectUrl,
     paidWith: charge.paidWith,
     paymentOptions: resolvePaymentOptions(charge),
+    swapAlternatives: charge.swapAlternatives,
   }
 }

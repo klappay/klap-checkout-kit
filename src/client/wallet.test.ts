@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { PaymentOption } from '../types'
-import { createWalletPayment } from './wallet'
+import { createWalletPayment, watchAccountChanges } from './wallet'
 
 const option: PaymentOption = {
   token: 'USDC',
@@ -198,5 +198,44 @@ describe('createWalletPayment', () => {
 
     expect(wallet.getStatus()).toBe('error')
     expect(errors).toHaveLength(1)
+  })
+})
+
+describe('watchAccountChanges', () => {
+  it('calls onChange with the first account when the wallet reports a change', () => {
+    let listener: ((accounts: unknown) => void) | undefined
+    const provider = {
+      request: vi.fn(),
+      on: vi.fn((event: string, l: (...args: unknown[]) => void) => {
+        if (event === 'accountsChanged') listener = l
+      }),
+    }
+
+    const seen: (string | null)[] = []
+    watchAccountChanges(provider, (account) => seen.push(account))
+    listener?.(['0xnew', '0xother'])
+
+    expect(seen).toEqual(['0xnew'])
+  })
+
+  it('calls onChange with null when the wallet reports no accounts (disconnected)', () => {
+    let listener: ((accounts: unknown) => void) | undefined
+    const provider = {
+      request: vi.fn(),
+      on: vi.fn((event: string, l: (...args: unknown[]) => void) => {
+        if (event === 'accountsChanged') listener = l
+      }),
+    }
+
+    const seen: (string | null)[] = []
+    watchAccountChanges(provider, (account) => seen.push(account))
+    listener?.([])
+
+    expect(seen).toEqual([null])
+  })
+
+  it('does nothing when the provider has no on() method', () => {
+    const provider = { request: vi.fn() }
+    expect(() => watchAccountChanges(provider, () => {})).not.toThrow()
   })
 })
