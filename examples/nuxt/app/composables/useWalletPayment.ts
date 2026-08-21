@@ -12,26 +12,26 @@ export function useWalletPayment(option: PaymentOption, recipientAddress: string
   const txHash = ref<string | null>(null)
   const error = ref<unknown>(null)
 
-  const wallet = createWalletPayment(option, recipientAddress)
+  const wallet = import.meta.client ? createWalletPayment(option, recipientAddress) : null
 
-  const offAccount = wallet.on('account', (a) => {
+  const offAccount = wallet?.on('account', (a) => {
     account.value = a
   })
-  const offStatus = wallet.on('status', (s) => {
+  const offStatus = wallet?.on('status', (s) => {
     status.value = s
   })
-  const offSent = wallet.on('sent', (hash) => {
+  const offSent = wallet?.on('sent', (hash) => {
     txHash.value = hash
   })
-  const offError = wallet.on('error', (e) => {
+  const offError = wallet?.on('error', (e) => {
     error.value = e
   })
 
   onUnmounted(() => {
-    offAccount()
-    offStatus()
-    offSent()
-    offError()
+    offAccount?.()
+    offStatus?.()
+    offSent?.()
+    offError?.()
   })
 
   return {
@@ -39,8 +39,8 @@ export function useWalletPayment(option: PaymentOption, recipientAddress: string
     status,
     txHash,
     error,
-    connect: wallet.connect,
-    reconnect: wallet.reconnect,
-    pay: wallet.pay,
+    connect: () => wallet?.connect(),
+    reconnect: () => wallet?.reconnect(),
+    pay: () => wallet?.pay(),
   }
 }
