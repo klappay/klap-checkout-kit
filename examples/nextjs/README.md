@@ -9,10 +9,13 @@ crypto checkout built on `@klappay/checkout-kit`:
   status over SSE via `checkout.watchCheckout()`.
 - `app/api/webhooks/klap/route.ts` — verifies and parses inbound Klappay
   webhook deliveries via `constructWebhookEvent()`.
+- `app/api/checkout/[id]/quote/route.ts` — quotes a swap-to-pay via
+  `checkout.getSwapQuote()`.
 - `app/checkout/[id]/` — a checkout page: connect a wallet, pay, watch live
   status, fall back to a manual address for pairs with no wallet mapping,
   survive a reload mid-confirmation, and redirect once the charge is
-  confirmed.
+  confirmed. `swap-hooks.ts` + `SwapAlternatives.tsx` add swap-to-pay —
+  one button per `payload.swapAlternatives` entry.
 
 See [`docs/checkout-flow.md`](https://github.com/klappay/klap-checkout-kit/blob/main/docs/checkout-flow.md)
 in the main package for the full walkthrough this app implements.

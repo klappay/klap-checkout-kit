@@ -10,14 +10,23 @@ crypto checkout built with `@klappay/checkout-kit`:
   streaming `checkout.watchCheckout(id, signal)` for live charge status.
 - `src/routes/api/webhooks/klap/+server.ts` — a webhook route verifying
   deliveries with `constructWebhookEvent`.
+- `src/routes/api/checkout/[id]/quote/+server.ts` — a `POST` route
+  quoting a swap-to-pay via `checkout.getSwapQuote(id, input)`.
 - `src/lib/wallet-store.ts` — a `svelte/store`-based wallet controller
   wrapping `createWalletPayment`.
+- `src/lib/swap-store.ts` — a `svelte/store`-based swap-to-pay
+  controller wrapping `createSwapPayment`, fetching a quote from the
+  route above first.
+- `src/routes/checkout/[id]/SwapAlternatives.svelte` — one button per
+  `payload.swapAlternatives` entry, using the store above; mirrors
+  `WalletPaymentButton.vue`/`SwapAlternatives.tsx` in the Nuxt/Next.js
+  examples.
 - `src/routes/checkout/[id]/+page.svelte` — the checkout UI: loads the
   charge via a `load` function, renders a wallet-connect button for
   wallet-payable options (falling back to the raw deposit address for
-  anything without a chain mapping), tracks "confirming" state across a
-  reload, watches live status over SSE, and redirects the payer once the
-  charge is `confirmed`.
+  anything without a chain mapping), the swap component above, tracks
+  "confirming" state across a reload, watches live status over SSE, and
+  redirects the payer once the charge is `confirmed`.
 - `src/routes/+page.svelte` — a minimal home page linking into
   `/checkout/[id]`.
 

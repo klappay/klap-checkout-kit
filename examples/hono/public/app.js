@@ -14,6 +14,7 @@ const chargeId = new URLSearchParams(location.search).get('charge') ?? 'test-id'
 
 const statusEl = document.getElementById('status')
 const optionsEl = document.getElementById('options')
+const swapOptionsEl = document.getElementById('swap-options')
 
 let stopWatching = null
 
@@ -62,6 +63,8 @@ function render(payload) {
   for (const option of payload.paymentOptions) {
     optionsEl.appendChild(renderOption(payload, option))
   }
+
+  renderSwapAlternatives(payload, swapOptionsEl, statusEl)
 }
 
 function renderOption(payload, option) {

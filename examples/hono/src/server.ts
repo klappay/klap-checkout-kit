@@ -48,6 +48,21 @@ app.get('/api/checkout/:id', async (c) => {
   }
 })
 
+app.post('/api/checkout/:id/quote', async (c) => {
+  const input = await c.req.json()
+  try {
+    const quote = await checkout.getSwapQuote(c.req.param('id'), input)
+    return c.json(quote)
+  } catch (err) {
+    if (err instanceof KlapApiError) {
+      if (err.status === 422 || err.status === 409 || err.status === 429 || err.status === 503) {
+        return c.json({ error: err.message }, err.status)
+      }
+    }
+    throw err
+  }
+})
+
 app.get('/api/checkout/:id/events', (c) => {
   return streamSSE(c, async (stream) => {
     const controller = new AbortController()

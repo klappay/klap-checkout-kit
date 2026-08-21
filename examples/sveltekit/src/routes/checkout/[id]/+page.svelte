@@ -15,6 +15,7 @@
   } from '@klappay/checkout-kit/client'
   import type { CheckoutPayload, ConfirmingRecord, PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
   import { createWalletStore } from '$lib/wallet-store'
+  import SwapAlternatives from './SwapAlternatives.svelte'
   import type { PageData } from './$types'
 
   export let data: PageData
@@ -30,8 +31,8 @@
   let status: Writable<WalletStatus> | null = null
   let txHash: Writable<string | null> | null = null
   let walletError: Writable<unknown> | null = null
-  let connect: (() => Promise<string>) | null = null
-  let pay: (() => Promise<string>) | null = null
+  let connect: (() => Promise<string> | undefined) | null = null
+  let pay: (() => Promise<string> | undefined) | null = null
 
   if (primaryOption) {
     const store = createWalletStore(primaryOption, payload.address)
@@ -118,6 +119,8 @@
       <p class="uri">{buildPaymentUri(primaryOption, payload.address)}</p>
     </section>
   {/if}
+
+  <SwapAlternatives chargeId={payload.id} swapAlternatives={payload.swapAlternatives} />
 
   {#if manualOptions.length > 0}
     <section>

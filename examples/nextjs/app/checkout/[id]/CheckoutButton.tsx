@@ -13,6 +13,7 @@ import {
 } from '@klappay/checkout-kit/client'
 import type { ConfirmingRecord, PaymentOption } from '@klappay/checkout-kit/client'
 import { useCheckoutPayload, useWalletPayment } from './hooks'
+import { SwapAlternatives } from './SwapAlternatives'
 
 export function CheckoutButton({ chargeId }: { chargeId: string }) {
   const { payload, error } = useCheckoutPayload(chargeId)
@@ -129,6 +130,8 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
           )}
         </div>
       )}
+
+      <SwapAlternatives payload={payload} />
     </div>
   )
 }

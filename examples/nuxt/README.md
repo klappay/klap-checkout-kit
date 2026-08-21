@@ -24,15 +24,22 @@ at this repo's own build instead).
   when the client disconnects.
 - `server/api/webhooks/klap.post.ts` — verifies `X-Klappay-Signature`
   with `constructWebhookEvent()`.
+- `server/api/checkout/[id]/quote.post.ts` — quotes a swap-to-pay via
+  `checkout.getSwapQuote()`.
 - `app/composables/useWalletPayment.ts` — the Vue Composition API
   wallet controller wrapper (`ref`/`onUnmounted`), from this package's
   own docs (`docs/frameworks.md`).
 - `app/components/WalletPaymentButton.vue` — connect/pay button for one
   wallet-payable `PaymentOption`, using the composable above.
+- `app/composables/useSwapPayment.ts` — the swap-to-pay equivalent:
+  fetches a quote from the route above, then wraps `createSwapPayment`.
+- `app/components/SwapPaymentButton.vue` — pay button for one
+  `payload.swapAlternatives` entry, using the composable above.
 - `app/pages/checkout/[id].vue` — the checkout page: fetches the
   payload, renders every payment option (wallet button for
-  wallet-payable ones, a raw address for the rest), watches live status
-  over SSE, and redirects on confirmation.
+  wallet-payable ones, a raw address for the rest, a swap button per
+  swap alternative), watches live status over SSE, and redirects on
+  confirmation.
 - `app/pages/index.vue` — a minimal home page with a form to jump to
   `/checkout/<charge-id>`.
 

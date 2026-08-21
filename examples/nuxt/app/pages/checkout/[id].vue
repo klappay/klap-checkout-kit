@@ -89,6 +89,16 @@ function onSent(txHash: string) {
           </p>
         </div>
       </div>
+
+      <template v-if="payload.swapAlternatives.length > 0">
+        <h2>Pay with a different crypto</h2>
+        <SwapPaymentButton
+          v-for="alt in payload.swapAlternatives"
+          :key="`${alt.token}-${alt.network}`"
+          :alt="alt"
+          :charge-id="payload.id"
+        />
+      </template>
     </template>
 
     <p v-else>Loading…</p>
