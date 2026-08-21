@@ -59,11 +59,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Typecheck
-        run: pnpm run --if-present typecheck
-
-      - name: Build
-        run: pnpm run --if-present build
+      # Try the published latest first — when it already has what this
+      # example needs, this is the real smoke test described above, and
+      # nothing below runs. When a change has landed on main but hasn't
+      # been published yet (the normal state between merging a feature
+      # and merging its "Version Packages" PR), typecheck/build fail here
+      # for a reason that has nothing to do with this example's own
+      # code — so build @klappay/checkout-kit from source and link it in,
+      # then try again. If it still fails after that, it's a real bug in
+      # the example.
+      - name: Typecheck and build against published latest, falling back to a local build
+        run: |
+          if pnpm run --if-present typecheck && pnpm run --if-present build; then
+            exit 0
+          fi
+          echo "::notice::@klappay/checkout-kit@latest doesn't satisfy this example yet — falling back to a local build."
+          (cd ../.. && pnpm install --frozen-lockfile && pnpm build)
+          pnpm link ../..
+          pnpm run --if-present typecheck
+          pnpm run --if-present build
 
   changeset-check:
     if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')

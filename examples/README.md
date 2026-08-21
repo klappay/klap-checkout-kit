@@ -55,3 +55,14 @@ dependency.
 typechecks/builds each app on every push — no deploy, just a
 correctness check (and, since nothing is pinned, an early warning if a
 real release breaks one of these).
+
+It tries the published `latest` first. That's the real signal described
+above — when it passes, the example genuinely works against what's
+installable today. When a change has landed on `main` but its
+"Version Packages" PR hasn't been merged yet (the normal state in
+between), `latest` doesn't have what the example needs yet, which would
+otherwise fail CI for a reason that has nothing to do with the example's
+own code. CI logs a `::notice::` and falls back to building
+`@klappay/checkout-kit` from source and `pnpm link`-ing it in — the same
+manual steps described above — before trying again. If it still fails
+after that, it's a real bug in the example.
