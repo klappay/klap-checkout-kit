@@ -92,6 +92,47 @@ async function onWalletButtonClick(option) {
 }
 ```
 
+## 4b. Or pay with a different crypto (swap-to-pay)
+
+```ts
+app.post('/api/checkout/:id/quote', async (c) => {
+  const input = await c.req.json() // { inputToken, inputNetwork, takerAddress }
+  return c.json(await checkout.getSwapQuote(c.req.param('id'), input))
+})
+```
+
+```ts
+import { createSwapPayment } from '@klappay/checkout-kit/client'
+
+async function onSwapButtonClick(alt) {
+  // alt is one of payload.swapAlternatives — { token, network }
+  const account = await wallet.reconnect() // or connect() — same wallet requests the quote and pays it
+  const quote = await fetch(`/api/checkout/${payload.id}/quote`, {
+    method: 'POST',
+    body: JSON.stringify({ inputToken: alt.token, inputNetwork: alt.network, takerAddress: account }),
+  }).then((r) => r.json())
+
+  const swap = createSwapPayment(quote)
+  swap.on('sent', (txHash) => {
+    saveConfirming(payload.id, quote.outputNetwork, txHash)
+    showConfirmingState(txHash)
+  })
+  swap.on('error', (error) => {
+    if (error.code === 4001) showRejectedState()
+    else showGenericErrorState(error)
+  })
+
+  await swap.connect()
+  await swap.pay() // approves Permit2 first if quote.permit2 is present and not yet allowed
+}
+```
+
+Same `payload.id`/`saveConfirming()`/step 5 below either way — a
+swap-to-pay transaction still lands on `payload.address` as a normal
+credited transfer, indistinguishable from a direct wallet payment once
+it confirms. See [Swap-to-pay](/client#swap-to-pay-paying-with-a-different-crypto)
+for the full status machine.
+
 ## 5. Watch for confirmation
 
 ```ts

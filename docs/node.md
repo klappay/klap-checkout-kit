@@ -54,6 +54,8 @@ Returns:
   a `CheckoutPayload`, the 80%-case one-call path.
 - `getCharge(chargeId)` — the full raw `Charge`, if you want to build
   your own response shape (see "Composing your own shape" below).
+- `getSwapQuote(chargeId, input)` — quote a swap-to-pay, see
+  [Swap-to-pay](#swap-to-pay-paying-with-a-different-crypto) below.
 - `watchCheckout(chargeId, signal?)` — an `AsyncGenerator<CheckoutPayload>`
   for live status, see [Full checkout flow](/checkout-flow).
 - `client` — the underlying `@klappay/node` client, for anything this
@@ -81,6 +83,7 @@ not a `test` one:
   "expiresAt": "2026-08-19T15:00:00.000Z",
   "redirectUrl": "https://your-store.com/orders/1234/thank-you",
   "paidWith": [],
+  "swapAlternatives": [],
   "paymentOptions": [
     {
       "token": "USDC",
@@ -103,6 +106,10 @@ not a `test` one:
 The `polygon` entry is still fully payable — just not by wallet
 (`isWalletPayable()` returns `false` for it); render `payload.address`
 directly for that pair instead of a wallet-connect button.
+`swapAlternatives` is empty here because this is a `test`-environment
+charge — 0x (who powers swap-to-pay) has no testnet support, so it's
+always empty for `test`, populated only for `live` (see
+[Swap-to-pay](#swap-to-pay-paying-with-a-different-crypto)).
 
 The type behind that shape:
 
@@ -121,6 +128,7 @@ type CheckoutPayload = {
   redirectUrl: string | null
   paidWith: AcceptedPayment[]
   paymentOptions: PaymentOption[]
+  swapAlternatives: SwapAlternative[]
 }
 
 type PaymentOption = AcceptedPayment & {
@@ -170,21 +178,27 @@ import type { CheckoutPayload, PaymentOption } from '@klappay/checkout-kit/node'
 
 import type {
   AcceptedPayment,
+  AltToken,
   Charge,
   ChargeStatus,
+  CreateSwapQuoteInput,
   Environment,
   Network,
   SettlementStatus,
+  SwapAlternative,
+  SwapQuote,
   Token,
 } from '@klappay/checkout-kit/node' // or /client
 ```
 
 `CheckoutPayload` and `PaymentOption` are this package's own types —
 defined in `src/types.ts`, shared by both subpaths. Everything else in
-that second import (`AcceptedPayment`, `Charge`, `ChargeStatus`,
-`Environment`, `Network`, `SettlementStatus`, `Token`) is re-exported
-straight from `@klappay/types`, purely for convenience — same types,
-same values at runtime, just reachable without a second package import.
+that second import (`AcceptedPayment`, `AltToken`, `Charge`,
+`ChargeStatus`, `CreateSwapQuoteInput`, `Environment`, `Network`,
+`SettlementStatus`, `SwapAlternative`, `SwapQuote`, `Token`) is
+re-exported straight from `@klappay/types`, purely for convenience —
+same types, same values at runtime, just reachable without a second
+package import.
 `Charge` is the one that isn't a field type of `CheckoutPayload` itself;
 it's the full raw shape `getCharge()`/`toCheckoutPayload()` take as
 input, exported for when you're composing your own response shape (see
@@ -235,6 +249,62 @@ const uri = buildPaymentUri(option, payload.address)
 directly for that pair instead. This package doesn't ship a QR
 renderer itself; pipe the URI into whatever QR library you already use
 (e.g. the `qrcode` npm package renders an SVG/canvas from any string).
+
+## Swap-to-pay: paying with a different crypto
+
+A charge only ever accepts specific `(token, network)` pairs
+(`payload.paymentOptions`) — swap-to-pay lets a payer settle it with a
+crypto it doesn't actually accept instead (ETH, BNB, MATIC, AVAX, or
+BTC), swapped via 0x into one of the accepted pairs before it ever
+reaches you. You always receive the stablecoin you configured; the
+payer covers the swap.
+
+`payload.swapAlternatives` lists which `(token, network)` pairs are
+offerable this way for this charge — empty for a `test`-environment
+charge (0x has no testnet), or if swap-to-pay isn't configured on your
+deployment:
+
+```ts
+type SwapAlternative = { token: AltToken; network: Network } // AltToken: 'ETH' | 'BNB' | 'MATIC' | 'AVAX' | 'BTC'
+```
+
+Once the payer picks one, request a quote from your own backend —
+`getSwapQuote()` needs the payer's connected wallet address as
+`takerAddress`, so this can't happen before `client/swap.ts`'s
+`connect()` on the frontend:
+
+```ts
+app.post('/api/checkout/:id/quote', async (c) => {
+  const { inputToken, inputNetwork, takerAddress } = await c.req.json()
+  return c.json(await checkout.getSwapQuote(c.req.param('id'), { inputToken, inputNetwork, takerAddress }))
+})
+```
+
+`getSwapQuote(chargeId, input)` proxies `@klappay/node`'s
+`client.charges.getQuote()` — a stateless, on-demand computation, not a
+persisted resource; there's no `quoteId` to look up later, just
+re-request if the payer waits too long. `SwapQuote`:
+
+```ts
+type SwapQuote = {
+  inputToken: AltToken
+  inputNetwork: Network
+  inputAmount: number // ceiling the payer needs available, in whole units — a favorable price refunds the excess automatically, on-chain, same transaction
+  outputToken: Token
+  outputNetwork: Network
+  outputAmount: number // exactly what you receive — charge.amount - charge.amountReceived, never reduced by fees below
+  fees: { klappayFee: number; zeroExFee: number | null } // both paid by the payer on top of inputAmount, already reflected in it — shown separately for transparency
+  expiresAt: string // ~30s UI countdown hint only — the real price guarantee is on-chain, not this timestamp
+  transaction: { to: string; data: string; value: string }
+  permit2?: { eip712: Record<string, unknown> } // present only for an ERC-20 input (today, only BTC)
+}
+```
+
+Hand the quote straight to `createSwapPayment()` on the client —
+see [Swap-to-pay](/client#swap-to-pay-paying-with-a-different-crypto)
+for the wallet-signing side, including why an ERC-20 input (`BTC`)
+needs one extra on-chain approval step a native-currency input (ETH/
+BNB/MATIC/AVAX) doesn't.
 
 ## Live status: must proxy through your own backend
 

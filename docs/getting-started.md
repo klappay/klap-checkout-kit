@@ -117,9 +117,10 @@ for reconnecting on reload, QR fallback, and watching live status.
   `CheckoutPayload`/`PaymentOption` shape, importing types, and the
   lower-level pieces it's built from if you want a different response
   shape.
-- [`client.md`](./client) — the wallet controller, QR/manual-address
-  fallback, tracking "confirming" across a reload, watching live
-  status, and redirecting the payer back after confirmation.
+- [`client.md`](./client) — the wallet controller, swap-to-pay (paying
+  with a different crypto), QR/manual-address fallback, tracking
+  "confirming" across a reload, watching live status, and redirecting
+  the payer back after confirmation.
 - [`checkout-flow.md`](./checkout-flow) — the whole thing end to end,
   Node and client wired together in one page.
 - [`webhooks.md`](./webhooks) — verifying Core's signed webhook

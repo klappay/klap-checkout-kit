@@ -114,6 +114,14 @@ zero-build `public/*.js` setup) points at the route above:
 See [No bundler? Use the script-tag build](/client#no-bundler-use-the-script-tag-build)
 for the full API surface available on `window.KlapCheckoutKit`.
 
+Swap-to-pay (`public/swap.js` in the repo) follows the same
+script-tag pattern — a `POST /api/checkout/:id/quote` route added
+alongside the one above, and `KlapCheckoutKit.createSwapPayment(quote)`
+on the client. See [Swap-to-pay](/node#swap-to-pay-paying-with-a-different-crypto)
+for the full quote shape and [the client side](/client#swap-to-pay-paying-with-a-different-crypto)
+for the wallet-signing flow — both apply unchanged whether loaded via
+`<script>` or `import`.
+
 ## Next.js (App Router)
 
 Route Handlers for the server half, a Client Component for the wallet
@@ -338,4 +346,16 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const { id } = await params
   return <CheckoutButton chargeId={id} />
 }
+```
+
+Swap-to-pay adds one more Route Handler
+(`app/api/checkout/[id]/quote/route.ts`, calling
+`checkout.getSwapQuote()`) plus a `swap-hooks.ts` +
+`SwapAlternatives.tsx` pair mirroring `hooks.ts`/`CheckoutButton.tsx`
+above — same `useState`/`useCallback`/event-emitter shape, just against
+`createSwapPayment()` instead of `createWalletPayment()`. See
+[Swap-to-pay](/node#swap-to-pay-paying-with-a-different-crypto) for the
+quote shape and [the client side](/client#swap-to-pay-paying-with-a-different-crypto)
+for the full signing flow, or the repo's `examples/nextjs/` for the
+complete files.
 ```

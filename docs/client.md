@@ -117,6 +117,60 @@ checks `eth_accounts` instead of requesting `eth_requestAccounts`, so a
 page reload doesn't force the payer through a re-approval popup for a
 wallet that's already authorized this origin.
 
+## Swap-to-pay: paying with a different crypto
+
+For a payer holding ETH/BNB/MATIC/AVAX/BTC instead of a stablecoin the
+charge accepts — see [Swap-to-pay](/node#swap-to-pay-paying-with-a-different-crypto)
+for `payload.swapAlternatives` and getting a `SwapQuote` from your own
+backend first. `createSwapPayment(quote, provider?)` executes it:
+
+```ts
+import { createSwapPayment } from '@klappay/checkout-kit/client'
+
+const account = await wallet.reconnect() // or wallet.connect(), same account used as takerAddress above
+const quote = await fetch(`/api/checkout/${payload.id}/quote`, {
+  method: 'POST',
+  body: JSON.stringify({ inputToken: 'ETH', inputNetwork: 'base', takerAddress: account }),
+}).then((r) => r.json())
+
+const swap = createSwapPayment(quote)
+swap.on('status', (status) => console.log('status', status)) // 'idle' | 'connecting' | 'checking-allowance' | 'approving' | 'signing' | 'paying' | 'sent' | 'error'
+swap.on('approved', (txHash) => console.log('permit2 approved', txHash))
+swap.on('sent', (txHash) => console.log('sent', txHash))
+swap.on('error', (error) => console.log('failed', error))
+
+await swap.connect() // must be the same account used as takerAddress when the quote was requested
+await swap.pay()
+```
+
+`pay()` branches on whether `quote.permit2` is present:
+
+- **Native input (ETH/BNB/MATIC/AVAX)** — no `permit2` field. `pay()`
+  switches chain if needed, then sends `quote.transaction` as-is.
+  Status goes straight from `'connecting'`/`'idle'` to `'paying'`.
+- **ERC-20 input (today, only `BTC`)** — `permit2` is present. Before
+  signing anything, `pay()` checks whether your wallet has already
+  approved the canonical Permit2 contract to move this token
+  (`'checking-allowance'`) — a real on-chain `approve()` transaction is
+  unavoidable the first time a given wallet uses a given token with
+  Permit2, signature-only transfers don't skip it. If it's short,
+  `pay()` sends that approval and waits for it to confirm
+  (`'approving'`, emits `'approved'` with the tx hash) before
+  continuing. Then it signs `quote.permit2.eip712`
+  (`'signing'`, a wallet popup, not a transaction) and submits the swap
+  (`'paying'`).
+
+Same `error.code === 4001` (user-rejected) applies to both the approval
+and the signature/transaction prompts — `pay()` re-throws/emits the raw
+provider error either way, no special-casing.
+
+`quote.expiresAt` is a ~30s UI countdown hint, not enforced by this
+package — submitting late either reverts on-chain or gets re-quoted at
+the current price on submission, it never silently executes at a stale
+price. If your UI shows a countdown, re-fetch a fresh quote (same POST
+as above) once it lapses instead of retrying `pay()` with the stale
+one.
+
 ## QR / manual-address fallback
 
 Every payment option is showable, wallet-payable or not — for one with
@@ -216,9 +270,10 @@ inlined, attaches every export from this page to a single global:
 </script>
 ```
 
-`KlapCheckoutKit.createWalletPayment`, `.buildPaymentUri`,
-`.isWalletPayable`, `.resolveRedirectUrl`, `.watchCheckoutEvents`, and
-every other function on this page — same behavior as the ESM import,
+`KlapCheckoutKit.createWalletPayment`, `.createSwapPayment`,
+`.buildPaymentUri`, `.isWalletPayable`, `.resolveRedirectUrl`,
+`.watchCheckoutEvents`, and every other function on this page — same
+behavior as the ESM import,
 just reachable without a build step. Serve
 `node_modules/@klappay/checkout-kit/dist/client/index.global.js`
 directly (a second static-file route pointed at that path) instead of
@@ -239,3 +294,6 @@ function, a bundler), so there's nothing for it to solve there.
 - No classification of wallet errors — `error.code === 4001` on the
   `'error'` event means the payer rejected the transaction; anything
   else is provider-specific. No UI copy belongs in this package.
+- No automatic re-quote when a `SwapQuote` expires — `createSwapPayment()`
+  takes a fixed quote and doesn't watch `expiresAt`; fetching a fresh
+  one after it lapses is on your own UI.

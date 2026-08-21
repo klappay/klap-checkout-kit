@@ -21,7 +21,7 @@ features:
     details: Turn a Charge into a CheckoutPayload — payable options, redirect URL, live status — from your own backend.
     link: /node
   - title: Client
-    details: Connect an injected wallet, send the exact transaction, or render a QR — no DOM assumptions, bring your own UI.
+    details: Connect an injected wallet, send the exact transaction (or swap-to-pay with a different crypto), or render a QR — no DOM assumptions, bring your own UI.
     link: /client
   - title: Full checkout flow
     details: A complete connect → pay → confirm walkthrough, Node and client pieces wired together.

@@ -16,6 +16,12 @@ a `'status'` event — see [Client](/client#connecting-a-wallet-and-paying).
 None of the examples below hand-roll that state machine; they just
 subscribe to it, same as `'account'`/`'sent'`/`'error'`.
 
+`createSwapPayment()` (for [swap-to-pay](/client#swap-to-pay-paying-with-a-different-crypto))
+has the identical `.on()`/`.getStatus()` shape, just with a longer
+`SwapPaymentStatus` union and an extra `'approved'` event — every
+pattern below applies to it unchanged, only the imported type/status
+values differ.
+
 ## React
 
 ```tsx
