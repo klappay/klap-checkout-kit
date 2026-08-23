@@ -44,8 +44,8 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@klappay/node": "^3.2.1",
-    "@klappay/types": "^3.1.0"
+    "@klappay/node": "^3.2.2",
+    "@klappay/types": "^3.1.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
