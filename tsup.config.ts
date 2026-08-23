@@ -12,6 +12,7 @@ export default defineConfig([
     format: ['esm'],
     dts: true,
     clean: false,
+    noExternal: ['@klappay/types'],
   },
   {
     entry: { 'client/index': 'src/client/index.ts' },
@@ -20,5 +21,6 @@ export default defineConfig([
     minify: true,
     dts: false,
     clean: false,
+    noExternal: ['@klappay/types'],
   },
 ])
