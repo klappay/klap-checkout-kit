@@ -4,6 +4,7 @@ export type {
   AcceptedPayment,
   AltToken,
   Charge,
+  CheckChargeRequest,
   CheckoutPayload,
   ChargeStatus,
   CreateSwapQuoteInput,

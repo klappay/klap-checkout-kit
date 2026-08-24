@@ -44,6 +44,7 @@ export type {
   AltToken,
   Charge,
   ChargeStatus,
+  CheckChargeRequest,
   CreateSwapQuoteInput,
   Environment,
   Network,

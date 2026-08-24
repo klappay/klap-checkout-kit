@@ -133,6 +133,22 @@ credited transfer, indistinguishable from a direct wallet payment once
 it confirms. See [Swap-to-pay](/client#swap-to-pay-paying-with-a-different-crypto)
 for the full status machine.
 
+Optionally, call your own `checkCheckout()` route (see
+[Instant re-check](/node#instant-re-check-after-a-payers-transaction))
+from either `'sent'` handler above instead of waiting out background
+reconciliation:
+
+```ts
+wallet.on('sent', (txHash) => {
+  saveConfirming(payload.id, option.network, txHash)
+  showConfirmingState(txHash)
+  fetch(`/api/checkout/${payload.id}/check`, {
+    method: 'POST',
+    body: JSON.stringify({ txHash, network: option.network }),
+  })
+})
+```
+
 ## 5. Watch for confirmation
 
 ```ts

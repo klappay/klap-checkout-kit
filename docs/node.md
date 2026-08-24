@@ -56,6 +56,9 @@ Returns:
   your own response shape (see "Composing your own shape" below).
 - `getSwapQuote(chargeId, input)` — quote a swap-to-pay, see
   [Swap-to-pay](#swap-to-pay-paying-with-a-different-crypto) below.
+- `checkCheckout(chargeId, input?)` — trigger an immediate on-chain
+  re-check instead of waiting for background reconciliation, see
+  [Instant re-check](#instant-re-check-after-a-payers-transaction) below.
 - `watchCheckout(chargeId, signal?)` — an `AsyncGenerator<CheckoutPayload>`
   for live status, see [Full checkout flow](/checkout-flow).
 - `client` — the underlying `@klappay/node` client, for anything this
@@ -180,6 +183,7 @@ import type {
   AcceptedPayment,
   AltToken,
   Charge,
+  CheckChargeRequest,
   ChargeStatus,
   CreateSwapQuoteInput,
   Environment,
@@ -194,9 +198,10 @@ import type {
 `CheckoutPayload` and `PaymentOption` are this package's own types —
 defined in `src/types.ts`, shared by both subpaths. Everything else in
 that second import (`AcceptedPayment`, `AltToken`, `Charge`,
-`ChargeStatus`, `CreateSwapQuoteInput`, `Environment`, `Network`,
-`SettlementStatus`, `SwapAlternative`, `SwapQuote`, `Token`) is
-re-exported straight from `@klappay/types`, purely for convenience —
+`ChargeStatus`, `CheckChargeRequest`, `CreateSwapQuoteInput`,
+`Environment`, `Network`, `SettlementStatus`, `SwapAlternative`,
+`SwapQuote`, `Token`) is re-exported straight from `@klappay/types`,
+purely for convenience —
 same types, same values at runtime, just reachable without a second
 package import.
 `Charge` is the one that isn't a field type of `CheckoutPayload` itself;
@@ -328,6 +333,36 @@ app.get('/api/checkout/:id/events', async (c) => {
 An async generator is the lowest common denominator every framework can
 consume in a few lines — this package intentionally doesn't ship a
 framework-specific adapter.
+
+## Instant re-check after a payer's transaction
+
+Background reconciliation catches a new on-chain payment within roughly
+a minute as a backstop — fine for a payer who just scanned a QR code
+and is waiting anyway, too slow right after `createWalletPayment()` or
+`createSwapPayment()` sends a transaction from a connected wallet, where
+you already know a transaction went out. `checkCheckout(chargeId,
+input?)` proxies `@klappay/node`'s `client.charges.check()`, requiring
+the same API key as everything else in `createCheckoutKit()` — wire it
+into your own route next to `watchCheckout()`'s:
+
+```ts
+app.post('/api/checkout/:id/check', async (c) => {
+  const { txHash, network } = await c.req.json()
+  return c.json(await checkout.checkCheckout(c.req.param('id'), { txHash, network }))
+})
+```
+
+Passing `txHash`/`network` verifies that specific transaction directly
+— one RPC call instead of a block-range scan — but the amount credited
+always comes from what that transaction actually contains on-chain,
+never from anything the caller claims. Omit both to re-run the same
+block-range scan reconciliation uses. Either way this never trusts the
+caller: the charge only changes state if a real matching transfer is
+found. Core rate-limits this to once every 10 seconds per charge (shared
+across every caller, not per API key) since each call costs a real RPC
+round trip — a `429` from `client.charges.check()` means someone
+already triggered a check recently; prefer `watchCheckout()` to observe
+the result instead of polling this repeatedly.
 
 ## Verifying webhooks
 
