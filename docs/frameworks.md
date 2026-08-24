@@ -22,6 +22,33 @@ has the identical `.on()`/`.getStatus()` shape, just with a longer
 pattern below applies to it unchanged, only the imported type/status
 values differ.
 
+Two more capabilities drop into the exact same `wallet.on(...)`/hook
+shape below, framework-agnostic enough that they don't need a
+per-framework example of their own — the runnable `examples/`
+(nextjs/nuxt/sveltekit) show them wired into each framework's actual
+hook/composable/store:
+
+```ts
+// Right after 'sent' — an instant on-chain re-check instead of
+// waiting out the ~60s background reconciliation pass:
+wallet.on('sent', (txHash) => {
+  fetch(`/api/checkout/${payload.id}/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ txHash, network: option.network }),
+  })
+})
+
+// Before connect() — let the payer pick among several installed
+// wallet extensions instead of guessing at window.ethereum:
+import { discoverProviders } from '@klappay/checkout-kit/client'
+const providers = await discoverProviders() // [{ info: { name, icon, rdns }, provider }, ...]
+```
+
+See [Instant re-check](/node#instant-re-check-after-a-payers-transaction)
+and [Multiple wallets installed](/client#connecting-a-wallet-and-paying)
+for the full details of each.
+
 ## React
 
 ```tsx

@@ -10,7 +10,12 @@ Want to clone and run one instead of reading it here? See
 in the repo — four standalone, `pnpm install && pnpm dev`-ready apps
 covering Hono (no bundler at all), Next.js, SvelteKit, and Nuxt. Each
 always depends on `@klappay/checkout-kit`'s `latest` npm release, so
-they double as a live integration check, not a frozen snapshot.
+they double as a live integration check, not a frozen snapshot. All
+four also demonstrate [instant re-check](/node#instant-re-check-after-a-payers-transaction)
+and [EIP-6963 multi-wallet discovery](/client#connecting-a-wallet-and-paying);
+`nextjs`/`nuxt`/`sveltekit` additionally demonstrate
+[WalletConnect](/client#walletconnect-for-a-payer-with-a-wallet-app-not-an-extension)
+(the `hono` example can't — see its own README for why).
 
 ## Hono
 
@@ -70,6 +75,12 @@ app.get('/api/checkout/:id/events', (c) => {
   })
 })
 
+app.post('/api/checkout/:id/check', async (c) => {
+  const input = await c.req.json().catch(() => undefined)
+  const payload = await checkout.checkCheckout(c.req.param('id'), input)
+  return c.json(payload)
+})
+
 app.post('/webhooks/klap', async (c) => {
   const rawBody = await c.req.text()
   const signature = c.req.header('x-klappay-signature')
@@ -105,7 +116,14 @@ zero-build `public/*.js` setup) points at the route above:
 <script>
   const wallet = KlapCheckoutKit.createWalletPayment(option, payload.address)
   wallet.on('status', (status) => { /* update UI */ })
-  wallet.on('sent', (txHash) => { /* show confirming state */ })
+  wallet.on('sent', (txHash) => {
+    /* show confirming state */
+    fetch(`/api/checkout/${payload.id}/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash, network: option.network }),
+    })
+  })
   await wallet.connect()
   await wallet.pay()
 </script>
@@ -188,6 +206,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       Connection: 'keep-alive',
     },
   })
+}
+```
+
+`app/api/checkout/[id]/check/route.ts` — an instant on-chain re-check,
+called right after a wallet transaction is sent (see `CheckoutButton.tsx`
+below) instead of waiting out the ~60s background reconciliation pass:
+
+```ts
+import { NextResponse } from 'next/server'
+import { checkout } from '@/lib/checkout-kit'
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const input = await req.json().catch(() => undefined)
+  const payload = await checkout.checkCheckout(id, input)
+  return NextResponse.json(payload)
 }
 ```
 
@@ -308,6 +342,17 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
   const payload = useCheckoutPayload(chargeId)
   const option = payload?.paymentOptions.find(isWalletPayable) ?? null
   const { account, status, txHash, connect, pay } = useWalletPayment(option, payload?.address)
+
+  useEffect(() => {
+    if (!payload || !option || !txHash) return
+    // An instant on-chain re-check instead of waiting out the ~60s
+    // background reconciliation pass.
+    fetch(`/api/checkout/${payload.id}/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash, network: option.network }),
+    }).catch((err) => console.error('checkCheckout failed', err))
+  }, [payload, option, txHash])
 
   useEffect(() => {
     if (payload?.status === 'confirmed') {
