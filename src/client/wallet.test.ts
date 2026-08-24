@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { PaymentOption } from '../types'
-import { createWalletPayment, watchAccountChanges } from './wallet'
+import { createWalletPayment, switchChain, watchAccountChanges } from './wallet'
 
 const option: PaymentOption = {
   token: 'USDC',
@@ -198,6 +198,150 @@ describe('createWalletPayment', () => {
 
     expect(wallet.getStatus()).toBe('error')
     expect(errors).toHaveLength(1)
+    const calledMethods = (provider.request as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call) => (call[0] as { method: string }).method,
+    )
+    expect(calledMethods).not.toContain('wallet_addEthereumChain')
+  })
+
+  it('pay() adds the chain and completes when the wallet rejects the switch as unrecognized (4902)', async () => {
+    let switchAttempts = 0
+    const provider = makeProvider({
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === 'eth_requestAccounts') return ['0xpayer']
+        if (method === 'eth_chainId') return '0x1'
+        if (method === 'wallet_switchEthereumChain') {
+          switchAttempts++
+          if (switchAttempts === 1) throw Object.assign(new Error('unrecognized'), { code: 4902 })
+          return null
+        }
+        if (method === 'wallet_addEthereumChain') return null
+        if (method === 'eth_sendTransaction') return '0xtxhash'
+        throw new Error(`unexpected method ${method}`)
+      }),
+    })
+    const wallet = createWalletPayment(option, '0xrecipient', provider)
+    await wallet.connect()
+
+    const errors: unknown[] = []
+    wallet.on('error', (error) => errors.push(error))
+
+    const txHash = await wallet.pay()
+
+    expect(txHash).toBe('0xtxhash')
+    expect(wallet.getStatus()).toBe('sent')
+    expect(errors).toHaveLength(0)
+  })
+})
+
+describe('switchChain', () => {
+  function unrecognizedChainError() {
+    return Object.assign(new Error('Unrecognized chain ID'), { code: 4902 })
+  }
+
+  it('does nothing when already on the target chain', async () => {
+    const provider = makeProvider({
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === 'eth_chainId') return '0x2105'
+        throw new Error(`unexpected method ${method}`)
+      }),
+    })
+
+    await switchChain(provider, 8453)
+
+    expect(provider.request).toHaveBeenCalledTimes(1)
+  })
+
+  it('switches directly when the wallet already recognizes the chain', async () => {
+    const provider = makeProvider({
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === 'eth_chainId') return '0x1'
+        if (method === 'wallet_switchEthereumChain') return null
+        throw new Error(`unexpected method ${method}`)
+      }),
+    })
+
+    await switchChain(provider, 8453)
+
+    const calledMethods = (provider.request as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call) => (call[0] as { method: string }).method,
+    )
+    expect(calledMethods).toEqual(['eth_chainId', 'wallet_switchEthereumChain'])
+  })
+
+  it('adds the chain and retries the switch when the wallet rejects it as unrecognized (4902)', async () => {
+    let switchAttempts = 0
+    const provider = makeProvider({
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === 'eth_chainId') return '0x1'
+        if (method === 'wallet_switchEthereumChain') {
+          switchAttempts++
+          if (switchAttempts === 1) throw unrecognizedChainError()
+          return null
+        }
+        if (method === 'wallet_addEthereumChain') return null
+        throw new Error(`unexpected method ${method}`)
+      }),
+    })
+
+    await switchChain(provider, 8453)
+
+    const calls = (provider.request as ReturnType<typeof vi.fn>).mock.calls
+    const calledMethods = calls.map((call) => (call[0] as { method: string }).method)
+    expect(calledMethods).toEqual([
+      'eth_chainId',
+      'wallet_switchEthereumChain',
+      'wallet_addEthereumChain',
+      'wallet_switchEthereumChain',
+    ])
+    expect(calls[2]?.[0]).toEqual({
+      method: 'wallet_addEthereumChain',
+      params: [
+        {
+          chainId: '0x2105',
+          chainName: 'Base',
+          nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+          rpcUrls: ['https://mainnet.base.org'],
+          blockExplorerUrls: ['https://basescan.org'],
+        },
+      ],
+    })
+  })
+
+  it('propagates the original error, without adding a chain, when the wallet rejects the switch for any other reason', async () => {
+    const provider = makeProvider({
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === 'eth_chainId') return '0x1'
+        if (method === 'wallet_switchEthereumChain') {
+          throw Object.assign(new Error('user rejected'), { code: 4001 })
+        }
+        throw new Error(`unexpected method ${method}`)
+      }),
+    })
+
+    await expect(switchChain(provider, 8453)).rejects.toThrow('user rejected')
+
+    const calledMethods = (provider.request as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call) => (call[0] as { method: string }).method,
+    )
+    expect(calledMethods).not.toContain('wallet_addEthereumChain')
+  })
+
+  it('propagates the original 4902 error, without adding a chain, when the target chainId has no known mapping', async () => {
+    const provider = makeProvider({
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === 'eth_chainId') return '0x1'
+        if (method === 'wallet_switchEthereumChain') throw unrecognizedChainError()
+        throw new Error(`unexpected method ${method}`)
+      }),
+    })
+
+    await expect(switchChain(provider, 999999)).rejects.toThrow('Unrecognized chain ID')
+
+    const calledMethods = (provider.request as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call) => (call[0] as { method: string }).method,
+    )
+    expect(calledMethods).not.toContain('wallet_addEthereumChain')
   })
 })
 

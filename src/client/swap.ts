@@ -15,6 +15,7 @@ import {
   type Eip1193Provider,
   getInjectedProvider,
   providerRequest,
+  switchChain,
   watchAccountChanges,
 } from './wallet'
 
@@ -141,13 +142,7 @@ export function createSwapPayment(
     const payer = account
 
     try {
-      const targetChainIdHex = `0x${chainId.toString(16)}`
-      const currentChainIdHex = await providerRequest<string>(provider, 'eth_chainId')
-      if (currentChainIdHex.toLowerCase() !== targetChainIdHex.toLowerCase()) {
-        await providerRequest(provider, 'wallet_switchEthereumChain', [
-          { chainId: targetChainIdHex },
-        ])
-      }
+      await switchChain(provider, chainId)
 
       await ensureAllowance(payer)
 

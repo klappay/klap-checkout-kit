@@ -256,6 +256,29 @@ describe('createSwapPayment', () => {
     })
   })
 
+  it('adds the chain and completes when the wallet rejects the switch as unrecognized (4902)', async () => {
+    let switchAttempts = 0
+    const provider = makeProvider(async ({ method }) => {
+      if (method === 'eth_requestAccounts') return ['0xpayer']
+      if (method === 'eth_chainId') return '0x1'
+      if (method === 'wallet_switchEthereumChain') {
+        switchAttempts++
+        if (switchAttempts === 1) throw Object.assign(new Error('unrecognized'), { code: 4902 })
+        return null
+      }
+      if (method === 'wallet_addEthereumChain') return null
+      if (method === 'eth_sendTransaction') return '0xswaphash'
+      throw new Error(`unexpected method ${method}`)
+    })
+    const swap = createSwapPayment(nativeQuote, provider)
+    await swap.connect()
+
+    const txHash = await swap.pay()
+
+    expect(txHash).toBe('0xswaphash')
+    expect(methodsCalled(provider)).toContain('wallet_addEthereumChain')
+  })
+
   it('rejects a malformed quote whose permit2 input resolves to a native-currency entry', async () => {
     const malformedQuote: SwapQuote = { ...permit2Quote, inputToken: 'ETH' }
     const provider = makeProvider(sufficientAllowanceRequest())

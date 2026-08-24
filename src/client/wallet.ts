@@ -1,5 +1,6 @@
 import { encodeErc20Transfer } from '../payment-uri'
 import type { PaymentOption } from '../types'
+import { getAddEthereumChainParams } from './chain-metadata'
 import { createEmitter } from './emitter'
 
 export type Eip1193Provider = {
@@ -37,6 +38,27 @@ export type WalletPaymentEvents = {
 export function getInjectedProvider(): Eip1193Provider | null {
   const provider = (globalThis as { ethereum?: Eip1193Provider }).ethereum
   return provider ?? null
+}
+
+function isUnrecognizedChainError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 4902
+}
+
+export async function switchChain(provider: Eip1193Provider, chainId: number): Promise<void> {
+  const targetChainIdHex = `0x${chainId.toString(16)}`
+  const currentChainIdHex = await providerRequest<string>(provider, 'eth_chainId')
+  if (currentChainIdHex.toLowerCase() === targetChainIdHex.toLowerCase()) return
+
+  try {
+    await providerRequest(provider, 'wallet_switchEthereumChain', [{ chainId: targetChainIdHex }])
+  } catch (error) {
+    const addChainParams = isUnrecognizedChainError(error)
+      ? getAddEthereumChainParams(chainId)
+      : null
+    if (!addChainParams) throw error
+    await providerRequest(provider, 'wallet_addEthereumChain', [addChainParams])
+    await providerRequest(provider, 'wallet_switchEthereumChain', [{ chainId: targetChainIdHex }])
+  }
 }
 
 export function createWalletPayment(
@@ -98,13 +120,7 @@ export function createWalletPayment(
     setStatus('paying')
 
     try {
-      const targetChainIdHex = `0x${chainId.toString(16)}`
-      const currentChainIdHex = await providerRequest<string>(provider, 'eth_chainId')
-      if (currentChainIdHex.toLowerCase() !== targetChainIdHex.toLowerCase()) {
-        await providerRequest(provider, 'wallet_switchEthereumChain', [
-          { chainId: targetChainIdHex },
-        ])
-      }
+      await switchChain(provider, chainId)
 
       const txHash = await providerRequest<string>(provider, 'eth_sendTransaction', [
         {
