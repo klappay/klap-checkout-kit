@@ -1,5 +1,63 @@
 # @klappay/checkout-kit
 
+## 1.4.0
+
+### Minor Changes
+
+- 0c9c200: `createWalletPayment()`'s `pay()` and `createSwapPayment()`'s `pay()`
+  now fall back to `wallet_addEthereumChain` when the wallet rejects
+  `wallet_switchEthereumChain` with "unrecognized chain" (`error.code
+=== 4902`), then retry the switch once — instead of letting that error
+  surface immediately. This matters most for polygon/arbitrum/avalanche/
+  bnb, networks a default wallet is less likely to have preloaded than
+  base/optimism/ethereum. Any other rejection (a different error code, a
+  chain this package has no metadata for, or the retried switch itself
+  failing) still surfaces exactly as before — nothing is silently
+  swallowed.
+
+  New internal module `client/chain-metadata.ts` provides the
+  `chainName`/`nativeCurrency`/`rpcUrls`/`blockExplorerUrls` payload,
+  built from `@klappay/types/constants` plus this package's own small
+  native-currency and public-RPC-URL tables (not something
+  `@klappay/types` has an equivalent for). Not part of the public API.
+
+  No breaking changes — `pay()`'s signature, events, and status machine
+  are unchanged; this only changes what happens after a 4902 rejection
+  that previously just failed the payment outright.
+
+- 6de2083: Adds `@klappay/checkout-kit/client/walletconnect` — a second, optional
+  way to obtain the `Eip1193Provider` that `createWalletPayment()`/
+  `createSwapPayment()` already accept as their third argument, for a
+  payer who only has a wallet _app_ to pair with (a mobile browser tab
+  with no in-app wallet browser, or a desktop browser with no wallet
+  extension installed) rather than an injected `window.ethereum`.
+
+  `createWalletConnectProvider({ projectId, chainIds, metadata })`
+  returns `{ connect, disconnect, on }`. `on('uri', ...)` gets you the
+  raw WalletConnect pairing string to render as a QR code or deep link
+  however you choose — no modal ships with this package, same "bring
+  your own UI" stance as `buildPaymentUri()`. `connect()` resolves to a
+  provider once the payer approves on their wallet app; pass it straight
+  into `createWalletPayment()`/`createSwapPayment()` — nothing else about
+  paying changes.
+
+  `@walletconnect/universal-provider` is a `peerDependency`
+  (`peerDependenciesMeta.optional: true`), not a regular dependency —
+  several MB of the WalletConnect relay/pairing/sign protocol, so it's
+  only installed by whoever actually imports this subpath. It stays
+  external in the build (`dist/client/walletconnect.js` is ~2KB); the
+  main `/client` bundle (`~8.8KB` IIFE, `~15.5KB` ESM) is completely
+  unaffected. This subpath has no IIFE build, unlike `/client` — wiring
+  up a WalletConnect `projectId` and rendering a QR code assumes a build
+  step already exists.
+
+  Also fixes `Eip155Provider`'s (the underlying library's EVM sub-
+  provider) `eth_chainId` returning a raw JS `number` instead of the
+  `0x`-prefixed hex string every EIP-1193 provider (and this package's
+  own `switchChain()`) expects — normalized by a small adapter, verified
+  against the real WalletConnect relay with a live `projectId`, not just
+  mocked tests.
+
 ## 1.3.0
 
 ### Minor Changes
