@@ -23,4 +23,10 @@ export default defineConfig([
     clean: false,
     noExternal: ['@klappay/types'],
   },
+  {
+    entry: { 'client/walletconnect': 'src/client/walletconnect.ts' },
+    format: ['esm'],
+    dts: true,
+    clean: false,
+  },
 ])
