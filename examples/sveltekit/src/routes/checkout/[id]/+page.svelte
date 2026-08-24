@@ -15,6 +15,7 @@
   } from '@klappay/checkout-kit/client'
   import type { CheckoutPayload, ConfirmingRecord, PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
   import { createWalletStore } from '$lib/wallet-store'
+  import { createWalletConnectStore } from '$lib/walletconnect-store'
   import SwapAlternatives from './SwapAlternatives.svelte'
   import type { PageData } from './$types'
 
@@ -35,13 +36,44 @@
   let pay: (() => Promise<string> | undefined) | null = null
 
   if (primaryOption) {
-    const store = createWalletStore(primaryOption, payload.address)
+    const store = createWalletStore(payload.id, primaryOption, payload.address)
     account = store.account
     status = store.status
     txHash = store.txHash
     walletError = store.error
     connect = store.connect
     pay = store.pay
+  }
+
+  let wcUri: Writable<string | null> | null = null
+  let wcConnecting: Writable<boolean> | null = null
+  let wcConnectError: Writable<unknown> | null = null
+  let wcAccount: Writable<string | null> | null = null
+  let wcStatus: Writable<WalletStatus> | null = null
+  let wcTxHash: Writable<string | null> | null = null
+  let wcWalletError: Writable<unknown> | null = null
+  let wcPay: (() => Promise<string> | undefined) | null = null
+
+  let walletConnectStore: ReturnType<typeof createWalletConnectStore> | null = null
+  if (primaryOption && primaryOption.chainId !== null) {
+    walletConnectStore = createWalletConnectStore([primaryOption.chainId])
+    wcUri = walletConnectStore.uri
+    wcConnecting = walletConnectStore.connecting
+    wcConnectError = walletConnectStore.error
+  }
+
+  async function connectWalletConnect() {
+    if (!walletConnectStore || !primaryOption) return
+    const provider = await walletConnectStore.connect()
+    if (!provider) return
+
+    const store = createWalletStore(payload.id, primaryOption, payload.address, provider)
+    wcAccount = store.account
+    wcStatus = store.status
+    wcTxHash = store.txHash
+    wcWalletError = store.error
+    wcPay = store.pay
+    await store.connect()
   }
 
   onMount(() => {
@@ -117,6 +149,34 @@
         <p class="error">Wallet error: {String($walletError)}</p>
       {/if}
       <p class="uri">{buildPaymentUri(primaryOption, payload.address)}</p>
+    </section>
+  {/if}
+
+  {#if primaryOption && walletConnectStore}
+    <section>
+      <h2>Pay with WalletConnect</h2>
+      <p>For a payer with a wallet app instead of a browser extension.</p>
+      {#if wcAccount && $wcAccount}
+        <button type="button" on:click={wcPay} disabled={$wcStatus === 'paying'}>
+          {$wcStatus === 'paying' ? 'Confirm in wallet…' : 'Pay now'}
+        </button>
+        {#if $wcTxHash}
+          <p>Sent: {$wcTxHash}</p>
+        {/if}
+      {:else}
+        <button type="button" on:click={connectWalletConnect} disabled={$wcConnecting}>
+          {$wcConnecting ? 'Connecting…' : 'Connect with WalletConnect'}
+        </button>
+        {#if $wcUri}
+          <p class="uri">Scan with your wallet app: {$wcUri}</p>
+        {/if}
+      {/if}
+      {#if $wcConnectError}
+        <p class="error">WalletConnect error: {String($wcConnectError)}</p>
+      {/if}
+      {#if wcWalletError && $wcWalletError}
+        <p class="error">Wallet error: {String($wcWalletError)}</p>
+      {/if}
     </section>
   {/if}
 

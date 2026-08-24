@@ -12,8 +12,21 @@ crypto checkout built with `@klappay/checkout-kit`:
   deliveries with `constructWebhookEvent`.
 - `src/routes/api/checkout/[id]/quote/+server.ts` — a `POST` route
   quoting a swap-to-pay via `checkout.getSwapQuote(id, input)`.
+- `src/routes/api/checkout/[id]/check/+server.ts` — a `POST` route
+  triggering an instant on-chain re-check via `checkout.checkCheckout(id,
+  input)`, called right after a wallet transaction is sent instead of
+  waiting out the ~60s background reconciliation pass.
 - `src/lib/wallet-store.ts` — a `svelte/store`-based wallet controller
-  wrapping `createWalletPayment`.
+  wrapping `createWalletPayment`, optionally taking an already-obtained
+  provider (used by the WalletConnect store below) as a fourth argument.
+- `src/lib/walletconnect-store.ts` — a `svelte/store`-based controller
+  wrapping `createWalletConnectProvider`
+  (`@klappay/checkout-kit/client/walletconnect`) — for a payer with a
+  wallet app instead of a browser extension. Exposes the pairing URI as
+  a store so the UI can render it (plain text here — bring your own QR
+  library for anything fancier); once connected, its resolved provider
+  is handed to `wallet-store.ts` above, so paying works identically to
+  the injected-wallet flow.
 - `src/lib/swap-store.ts` — a `svelte/store`-based swap-to-pay
   controller wrapping `createSwapPayment`, fetching a quote from the
   route above first.
@@ -52,6 +65,11 @@ Copy `.env.example` to `.env` and fill in `KLAP_API_KEY`, `KLAP_BASE_URL`,
 and (if you're testing the webhook route) `KLAP_WEBHOOK_SECRET`. These are
 only read at request time (`$env/dynamic/private`), not at build time, so
 `pnpm build` succeeds even without them set.
+
+`PUBLIC_WALLETCONNECT_PROJECT_ID` is only needed for the "Pay with
+WalletConnect" section — register a free one at
+[cloud.reown.com](https://cloud.reown.com). Left unset, that button still
+renders but `connect()` will fail; the rest of the checkout is unaffected.
 
 Then visit `/` and enter a real charge ID, or go straight to
 `/checkout/<chargeId>`.
