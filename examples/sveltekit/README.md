@@ -26,7 +26,9 @@ crypto checkout built with `@klappay/checkout-kit`:
   a store so the UI can render it (plain text here — bring your own QR
   library for anything fancier); once connected, its resolved provider
   is handed to `wallet-store.ts` above, so paying works identically to
-  the injected-wallet flow.
+  the injected-wallet flow. `disconnect()` tears the WalletConnect
+  session down and resets the store back to its initial state, wired to
+  a "Disconnect" button once connected.
 - `src/lib/swap-store.ts` — a `svelte/store`-based swap-to-pay
   controller wrapping `createSwapPayment`, fetching a quote from the
   route above first.
@@ -39,7 +41,12 @@ crypto checkout built with `@klappay/checkout-kit`:
   wallet-payable options (falling back to the raw deposit address for
   anything without a chain mapping), the swap component above, tracks
   "confirming" state across a reload, watches live status over SSE, and
-  redirects the payer once the charge is `confirmed`.
+  redirects the payer once the charge is `confirmed`. On mount it also
+  calls `discoverProviders()` (EIP-6963) — with 0 or 1 wallet extensions
+  found, the flow is unchanged; with 2+, a "Choose a wallet" picker
+  (real name/icon per extension) appears before the connect button, so
+  the payer isn't stuck with whichever extension last claimed
+  `window.ethereum`.
 - `src/routes/+page.svelte` — a minimal home page linking into
   `/checkout/[id]`.
 

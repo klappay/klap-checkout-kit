@@ -8,13 +8,15 @@ export function createWalletConnectStore(chainIds: number[]) {
   const connecting = writable(false)
   const error = writable<unknown>(null)
 
+  let wc: Awaited<ReturnType<typeof createWalletConnectProvider>> | null = null
+
   async function connect(): Promise<Eip1193Provider | null> {
     connecting.set(true)
     error.set(null)
     uri.set(null)
 
     try {
-      const wc = await createWalletConnectProvider({
+      wc = await createWalletConnectProvider({
         projectId: env.PUBLIC_WALLETCONNECT_PROJECT_ID ?? '',
         chainIds,
         metadata: {
@@ -37,5 +39,13 @@ export function createWalletConnectStore(chainIds: number[]) {
     }
   }
 
-  return { uri, connecting, error, connect }
+  async function disconnect(): Promise<void> {
+    await wc?.disconnect()
+    wc = null
+    uri.set(null)
+    connecting.set(false)
+    error.set(null)
+  }
+
+  return { uri, connecting, error, connect, disconnect }
 }

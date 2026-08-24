@@ -5,6 +5,7 @@
     buildPaymentUri,
     clearConfirming,
     confirmingExplorerUrl,
+    discoverProviders,
     getConfirming,
     isOpenStatus,
     isWalletPayable,
@@ -13,7 +14,14 @@
     saveConfirming,
     watchCheckoutEvents,
   } from '@klappay/checkout-kit/client'
-  import type { CheckoutPayload, ConfirmingRecord, PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
+  import type {
+    CheckoutPayload,
+    ConfirmingRecord,
+    Eip1193Provider,
+    Eip6963ProviderDetail,
+    PaymentOption,
+    WalletStatus,
+  } from '@klappay/checkout-kit/client'
   import { createWalletStore } from '$lib/wallet-store'
   import { createWalletConnectStore } from '$lib/walletconnect-store'
   import SwapAlternatives from './SwapAlternatives.svelte'
@@ -35,14 +43,22 @@
   let connect: (() => Promise<string> | undefined) | null = null
   let pay: (() => Promise<string> | undefined) | null = null
 
-  if (primaryOption) {
-    const store = createWalletStore(payload.id, primaryOption, payload.address)
+  let walletChoices: Eip6963ProviderDetail[] = []
+
+  function setupWallet(provider?: Eip1193Provider) {
+    if (!primaryOption) return
+    const store = createWalletStore(payload.id, primaryOption, payload.address, provider)
     account = store.account
     status = store.status
     txHash = store.txHash
     walletError = store.error
     connect = store.connect
     pay = store.pay
+  }
+
+  function pickWallet(detail: Eip6963ProviderDetail) {
+    walletChoices = []
+    setupWallet(detail.provider)
   }
 
   let wcUri: Writable<string | null> | null = null
@@ -76,7 +92,26 @@
     await store.connect()
   }
 
+  async function disconnectWalletConnect() {
+    await walletConnectStore?.disconnect()
+    wcAccount = null
+    wcStatus = null
+    wcTxHash = null
+    wcWalletError = null
+    wcPay = null
+  }
+
   onMount(() => {
+    if (primaryOption) {
+      discoverProviders().then((providers) => {
+        if (providers.length < 2) {
+          setupWallet()
+        } else {
+          walletChoices = providers
+        }
+      })
+    }
+
     const unsubscribe = txHash?.subscribe((hash) => {
       if (!hash || !primaryOption) return
       saveConfirming(payload.id, primaryOption.network, hash)
@@ -129,6 +164,21 @@
     </div>
   {/if}
 
+  {#if walletChoices.length > 0}
+    <section>
+      <h2>Choose a wallet</h2>
+      <p>More than one wallet extension was found — pick one:</p>
+      {#each walletChoices as choice (choice.info.uuid)}
+        <button type="button" class="wallet-choice" on:click={() => pickWallet(choice)}>
+          {#if choice.info.icon}
+            <img src={choice.info.icon} alt="" width="20" height="20" />
+          {/if}
+          {choice.info.name}
+        </button>
+      {/each}
+    </section>
+  {/if}
+
   {#if primaryOption && account && status && connect && pay}
     <section>
       <h2>Pay with wallet</h2>
@@ -160,6 +210,7 @@
         <button type="button" on:click={wcPay} disabled={$wcStatus === 'paying'}>
           {$wcStatus === 'paying' ? 'Confirm in wallet…' : 'Pay now'}
         </button>
+        <button type="button" on:click={disconnectWalletConnect}>Disconnect</button>
         {#if $wcTxHash}
           <p>Sent: {$wcTxHash}</p>
         {/if}
@@ -221,6 +272,13 @@
     word-break: break-all;
     font-size: 0.8rem;
     color: #666;
+  }
+
+  .wallet-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 0.5rem;
   }
 
   .error {
