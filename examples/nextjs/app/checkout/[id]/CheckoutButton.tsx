@@ -11,8 +11,8 @@ import {
   resolveRedirectUrl,
   saveConfirming,
 } from '@klappay/checkout-kit/client'
-import type { ConfirmingRecord, PaymentOption } from '@klappay/checkout-kit/client'
-import { useCheckoutPayload, useWalletPayment } from './hooks'
+import type { ConfirmingRecord, Eip6963ProviderDetail, PaymentOption } from '@klappay/checkout-kit/client'
+import { useCheckoutPayload, useDiscoveredProviders, useWalletPayment } from './hooks'
 import { SwapAlternatives } from './SwapAlternatives'
 import { useWalletConnectPayment } from './walletconnect-hooks'
 
@@ -20,6 +20,8 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
   const { payload, error } = useCheckoutPayload(chargeId)
   const [selected, setSelected] = useState<PaymentOption | null>(null)
   const [confirming, setConfirming] = useState<ConfirmingRecord | null>(null)
+  const discoveredProviders = useDiscoveredProviders()
+  const [chosenProvider, setChosenProvider] = useState<Eip6963ProviderDetail | null>(null)
 
   const option = selected ?? payload?.paymentOptions[0] ?? null
   const walletPayable = option ? isWalletPayable(option) : false
@@ -27,6 +29,7 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
   const { account, status, txHash, connect, pay } = useWalletPayment(
     walletPayable ? option : null,
     payload?.address,
+    chosenProvider?.provider,
   )
   const walletConnect = useWalletConnectPayment(
     chargeId,
@@ -125,6 +128,24 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
         </div>
       ) : walletPayable ? (
         <div>
+          {discoveredProviders.length > 1 && !account && (
+            <div>
+              <p>Choose a wallet:</p>
+              {discoveredProviders.map((p) => (
+                <button
+                  key={p.info.uuid}
+                  onClick={() => setChosenProvider(p)}
+                  disabled={p.info.uuid === chosenProvider?.info.uuid}
+                >
+                  {p.info.icon && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.info.icon} alt="" width={20} height={20} />
+                  )}
+                  {p.info.name}
+                </button>
+              ))}
+            </div>
+          )}
           {!account ? (
             <button onClick={connect}>Connect wallet</button>
           ) : (
@@ -143,9 +164,12 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
                   {walletConnect.status === 'connecting' ? 'Connecting…' : 'Pay with WalletConnect'}
                 </button>
               ) : (
-                <button onClick={walletConnect.pay} disabled={walletConnect.status === 'paying'}>
-                  {walletConnect.status === 'paying' ? 'Confirm in wallet…' : 'Pay now'}
-                </button>
+                <>
+                  <button onClick={walletConnect.pay} disabled={walletConnect.status === 'paying'}>
+                    {walletConnect.status === 'paying' ? 'Confirm in wallet…' : 'Pay now'}
+                  </button>
+                  <button onClick={walletConnect.disconnect}>Disconnect</button>
+                </>
               )}
               {walletConnect.uri && (
                 <p>

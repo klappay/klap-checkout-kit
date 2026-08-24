@@ -3,12 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   createWalletPayment,
+  discoverProviders,
   isWalletPayable,
   watchCheckoutEvents,
 } from '@klappay/checkout-kit/client'
-import type { CheckoutPayload, PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
+import type {
+  CheckoutPayload,
+  Eip1193Provider,
+  Eip6963ProviderDetail,
+  PaymentOption,
+  WalletStatus,
+} from '@klappay/checkout-kit/client'
 
-export function useWalletPayment(option: PaymentOption | null, recipientAddress: string | undefined) {
+export function useWalletPayment(
+  option: PaymentOption | null,
+  recipientAddress: string | undefined,
+  provider?: Eip1193Provider,
+) {
   const [account, setAccount] = useState<string | null>(null)
   const [status, setStatus] = useState<WalletStatus>('idle')
   const [txHash, setTxHash] = useState<string | null>(null)
@@ -20,7 +31,7 @@ export function useWalletPayment(option: PaymentOption | null, recipientAddress:
       walletRef.current = null
       return
     }
-    const wallet = createWalletPayment(option, recipientAddress)
+    const wallet = createWalletPayment(option, recipientAddress, provider)
     walletRef.current = wallet
 
     const offAccount = wallet.on('account', setAccount)
@@ -38,12 +49,28 @@ export function useWalletPayment(option: PaymentOption | null, recipientAddress:
       offSent()
       offError()
     }
-  }, [option, recipientAddress])
+  }, [option, recipientAddress, provider])
 
   const connect = useCallback(() => walletRef.current?.connect(), [])
   const pay = useCallback(() => walletRef.current?.pay(), [])
 
   return { account, status, txHash, error, connect, pay }
+}
+
+export function useDiscoveredProviders() {
+  const [providers, setProviders] = useState<Eip6963ProviderDetail[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    discoverProviders().then((found) => {
+      if (!cancelled) setProviders(found)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return providers
 }
 
 export function useCheckoutPayload(chargeId: string) {

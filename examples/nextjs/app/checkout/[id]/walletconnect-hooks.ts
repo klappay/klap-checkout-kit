@@ -18,6 +18,7 @@ export function useWalletConnectPayment(
   const [txHash, setTxHash] = useState<string | null>(null)
   const [error, setError] = useState<unknown>(null)
   const walletRef = useRef<ReturnType<typeof createWalletPayment> | null>(null)
+  const wcRef = useRef<Awaited<ReturnType<typeof createWalletConnectProvider>> | null>(null)
 
   const connect = useCallback(async () => {
     if (!projectId || !option || !recipientAddress || !isWalletPayable(option)) return
@@ -37,6 +38,7 @@ export function useWalletConnectPayment(
           icons: [],
         },
       })
+      wcRef.current = wc
       wc.on('uri', setUri)
 
       const provider = await wc.connect()
@@ -64,5 +66,16 @@ export function useWalletConnectPayment(
 
   const pay = useCallback(() => walletRef.current?.pay(), [])
 
-  return { available: Boolean(projectId), uri, account, status, txHash, error, connect, pay }
+  const disconnect = useCallback(async () => {
+    await wcRef.current?.disconnect()
+    wcRef.current = null
+    walletRef.current = null
+    setUri(null)
+    setAccount(null)
+    setStatus('idle')
+    setTxHash(null)
+    setError(null)
+  }, [])
+
+  return { available: Boolean(projectId), uri, account, status, txHash, error, connect, disconnect, pay }
 }

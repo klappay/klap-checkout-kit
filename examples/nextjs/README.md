@@ -21,7 +21,13 @@ crypto checkout built on `@klappay/checkout-kit`:
   confirmed. `swap-hooks.ts` + `SwapAlternatives.tsx` add swap-to-pay —
   one button per `payload.swapAlternatives` entry. `walletconnect-hooks.ts`
   adds an alternative "Pay with WalletConnect" flow, for a payer with a
-  wallet app instead of a browser extension (see "WalletConnect" below).
+  wallet app instead of a browser extension (see "WalletConnect" below) —
+  including a "Disconnect" button once paired, wired to the provider's own
+  `disconnect()`. `hooks.ts`'s `useDiscoveredProviders()` calls
+  `discoverProviders()` (EIP-6963) on mount; `CheckoutButton.tsx` only
+  shows a "choose a wallet" picker when 2+ extensions actually respond —
+  with 0 or 1, the flow is unchanged and just uses the default injected
+  provider.
 
 See [`docs/checkout-flow.md`](https://github.com/klappay/klap-checkout-kit/blob/main/docs/checkout-flow.md)
 in the main package for the full walkthrough this app implements.
