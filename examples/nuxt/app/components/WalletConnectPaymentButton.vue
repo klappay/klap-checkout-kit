@@ -2,7 +2,7 @@
 import { watch } from 'vue'
 import { saveConfirming } from '@klappay/checkout-kit/client'
 import type { PaymentOption } from '@klappay/checkout-kit/client'
-import { useWalletPayment } from '~/composables/useWalletPayment'
+import { useWalletConnectPayment } from '~/composables/useWalletConnectPayment'
 
 const props = defineProps<{
   option: PaymentOption
@@ -14,16 +14,13 @@ const emit = defineEmits<{
   sent: [txHash: string]
 }>()
 
-const { account, status, txHash, error, connect, pay } = useWalletPayment(props.option, props.address)
+const { status, txHash, error, uri, connect } = useWalletConnectPayment(props.option, props.address)
 
 watch(txHash, (hash) => {
   if (!hash) return
   saveConfirming(props.chargeId, props.option.network, hash)
   emit('sent', hash)
 
-  // Trigger an immediate on-chain re-check instead of waiting out the
-  // ~60s background reconciliation pass — watchCheckoutEvents() above
-  // still picks up the result either way.
   $fetch(`/api/checkout/${props.chargeId}/check`, {
     method: 'POST',
     body: { txHash: hash, network: props.option.network },
@@ -33,11 +30,16 @@ watch(txHash, (hash) => {
 
 <template>
   <div style="border: 1px solid #ccc; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem">
-    <p>Pay via <strong>{{ option.token }}</strong> on <strong>{{ option.network }}</strong></p>
-    <button v-if="!account" type="button" @click="connect">Connect wallet</button>
-    <button v-else type="button" :disabled="status === 'paying'" @click="pay">
-      {{ status === 'paying' ? 'Confirm in wallet…' : 'Pay now' }}
+    <p>
+      Pay via <strong>{{ option.token }}</strong> on <strong>{{ option.network }}</strong> (WalletConnect)
+    </p>
+    <button type="button" :disabled="status === 'awaiting-pairing' || status === 'paying'" @click="connect">
+      {{ status === 'awaiting-pairing' ? 'Waiting for wallet app…' : 'Pay with WalletConnect' }}
     </button>
+    <p v-if="uri" style="word-break: break-all">
+      Scan or open in your wallet app:
+      <code>{{ uri }}</code>
+    </p>
     <p v-if="txHash">Sent: {{ txHash }}</p>
     <p v-if="error" style="color: red">Error: {{ error instanceof Error ? error.message : String(error) }}</p>
   </div>

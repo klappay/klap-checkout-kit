@@ -26,11 +26,20 @@ at this repo's own build instead).
   with `constructWebhookEvent()`.
 - `server/api/checkout/[id]/quote.post.ts` — quotes a swap-to-pay via
   `checkout.getSwapQuote()`.
+- `server/api/checkout/[id]/check.post.ts` — triggers an immediate
+  on-chain re-check via `checkout.checkCheckout()`, instead of waiting
+  out the ~60s background reconciliation pass.
 - `app/composables/useWalletPayment.ts` — the Vue Composition API
   wallet controller wrapper (`ref`/`onUnmounted`), from this package's
   own docs (`docs/frameworks.md`).
 - `app/components/WalletPaymentButton.vue` — connect/pay button for one
-  wallet-payable `PaymentOption`, using the composable above.
+  wallet-payable `PaymentOption`, using the composable above. Calls the
+  `/check` route above the moment a transaction is sent.
+- `app/composables/useWalletConnectPayment.ts` +
+  `app/components/WalletConnectPaymentButton.vue` — the same payment
+  flow via `@klappay/checkout-kit/client/walletconnect` instead of an
+  injected wallet, for a payer with only a wallet *app* to pair with.
+  See "WalletConnect" below.
 - `app/composables/useSwapPayment.ts` — the swap-to-pay equivalent:
   fetches a quote from the route above, then wraps `createSwapPayment`.
 - `app/components/SwapPaymentButton.vue` — pay button for one
@@ -67,6 +76,24 @@ touches `process.env` at request time, not at build time.
 
 To verify webhook deliveries, also set `KLAP_WEBHOOK_SECRET` and point
 a Klappay webhook at `POST /api/webhooks/klap`.
+
+## WalletConnect
+
+The "Pay with WalletConnect" button next to each wallet-payable option
+needs a `projectId` — a free registration at
+[cloud.reown.com](https://cloud.reown.com) under your own domain (it
+can't be baked into `@klappay/checkout-kit`, since WalletConnect's
+relay infrastructure meters usage per project). Set it before `pnpm dev`:
+
+```bash
+NUXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id pnpm dev
+```
+
+Clicking the button shows the raw pairing URI as text — this example
+doesn't render a QR code (bring your own QR library, same as
+`buildPaymentUri()`'s output elsewhere on this page). On a phone,
+copy/open that URI in your wallet app to approve the connection; on
+desktop, encode it as a QR yourself and scan it from your phone.
 
 ## Testing against local unpublished changes
 

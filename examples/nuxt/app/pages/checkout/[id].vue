@@ -74,6 +74,12 @@ function onSent(txHash: string) {
       <div v-for="option in payload.paymentOptions" :key="`${option.token}-${option.network}`">
         <template v-if="isWalletPayable(option)">
           <WalletPaymentButton :option="option" :address="payload.address" :charge-id="payload.id" @sent="onSent" />
+          <WalletConnectPaymentButton
+            :option="option"
+            :address="payload.address"
+            :charge-id="payload.id"
+            @sent="onSent"
+          />
           <p style="color: #666; font-size: 0.85em; margin-top: -0.5rem">
             QR fallback: <code>{{ buildPaymentUri(option, payload.address) }}</code>
           </p>
