@@ -92,6 +92,12 @@ async function onWalletButtonClick(option) {
 }
 ```
 
+`createWalletPayment(option, payload.address)` defaults to an injected
+`window.ethereum`. For a payer with only a wallet *app* (mobile browser
+tab, or desktop with no extension), pass a WalletConnect-obtained
+provider as the third argument instead — everything else above is
+unchanged. See [WalletConnect](/client#walletconnect-for-a-payer-with-a-wallet-app-not-an-extension).
+
 ## 4b. Or pay with a different crypto (swap-to-pay)
 
 ```ts

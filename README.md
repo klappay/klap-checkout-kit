@@ -164,6 +164,46 @@ directly (e.g. a second static-file route pointed at that path) rather
 than copying it — that way it always matches whatever version is
 actually installed.
 
+### Payer has a wallet app, not a browser extension? Use WalletConnect
+
+`createWalletPayment()`/`createSwapPayment()` accept any object shaped
+like an injected wallet as their optional third argument — not just
+`window.ethereum`. `@klappay/checkout-kit/client/walletconnect` is a
+second, optional way to get one, for a payer on a mobile browser tab
+(or any desktop browser with no wallet extension) who only has a
+wallet *app* to pair with via QR/deep link:
+
+```bash
+pnpm add @walletconnect/universal-provider # peer dependency, only needed for this subpath
+```
+
+```ts
+import { createWalletConnectProvider } from '@klappay/checkout-kit/client/walletconnect'
+import { createWalletPayment } from '@klappay/checkout-kit/client'
+
+const wc = await createWalletConnectProvider({
+  projectId: 'YOUR_REOWN_CLOUD_PROJECT_ID', // cloud.reown.com — free, your own domain
+  chainIds: [option.chainId],
+  metadata: { name: 'Your Store', description: '...', url: 'https://...', icons: ['...'] },
+})
+wc.on('uri', (uri) => showYourOwnQrCodeOrDeepLink(uri)) // no modal shipped — bring your own UI
+
+const provider = await wc.connect() // resolves once the payer approves on their phone
+const wallet = createWalletPayment(option, payload.address, provider) // everything else unchanged
+await wallet.connect()
+await wallet.pay()
+```
+
+A `projectId` is your own (free) [cloud.reown.com](https://cloud.reown.com)
+registration — it can't be baked into this package, since usage is
+metered/rate-limited per project and tied to your domain for the
+"verified" badge shown in the payer's wallet. No modal/QR-rendering
+code ships here either, same "bring your own" stance as
+`buildPaymentUri()`. This subpath is a separate `peerDependency`
+(`@walletconnect/universal-provider`, several MB) specifically so
+nobody using only injected-wallet payments pays for it — the main
+`/client` bundle is completely unaffected.
+
 ## Types
 
 Every type this package's own API surface uses is importable from
@@ -206,14 +246,9 @@ outside this package's own surface — request/response types for
 - Doesn't add a public/unauthenticated charge-read surface — you need
   your own backend with your own Klappay API key, same as any
   `@klappay/node` integration.
-- Doesn't support WalletConnect or any wallet that isn't an injected
-  EIP-1193 provider — no `window.ethereum` (a mobile browser tab, not a
-  wallet app's in-app browser) means no wallet flow; QR/manual-address
-  payment still works there.
-- Doesn't retry a chain switch via `wallet_addEthereumChain` if the
-  wallet doesn't already have the target network configured
-  (`wallet_switchEthereumChain` error `4902`) — `pay()` lets that error
-  surface as-is.
+- Doesn't ship a WalletConnect modal/QR-renderer — `client/walletconnect`
+  gives you the raw pairing URI via a `'uri'` event, same "bring your
+  own" stance as `buildPaymentUri()`.
 - Doesn't classify wallet errors for you — `error.code === 4001` on the
   `'error'` event means the payer rejected the transaction; anything
   else is provider-specific.

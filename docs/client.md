@@ -59,10 +59,18 @@ const wallet = createWalletPayment(option, payload.address, metaMask)
 `pay()` does the full flow in one call: checks the wallet's current
 chain against `option.chainId` and requests `wallet_switchEthereumChain`
 if they differ, then sends a hand-encoded
-`transfer(address,uint256)` call — no ethers.js/viem, no ABI file. On
-success it emits `'sent'` with the transaction hash and resolves with
-it; on failure it emits `'error'` and rethrows, so `error.code === 4001`
-(user rejected) is still inspectable by your own catch block.
+`transfer(address,uint256)` call — no ethers.js/viem, no ABI file. If
+the wallet rejects the switch because it doesn't already have that
+network configured (`wallet_switchEthereumChain` error `4902`),
+`switchChain()` (used internally by both `pay()` here and
+`createSwapPayment()`'s) falls back to `wallet_addEthereumChain` with
+this package's own chain metadata (name, native currency, a public RPC
+URL, block explorer) and retries the switch once — only for a network
+this package actually resolves a chain ID for; any other rejection
+(including a still-failing add) surfaces as-is. On success it emits
+`'sent'` with the transaction hash and resolves with it; on failure it
+emits `'error'` and rethrows, so `error.code === 4001` (user rejected)
+is still inspectable by your own catch block.
 
 ### Tracking busy/idle state
 
@@ -282,15 +290,73 @@ actually installed. `/node` has no equivalent IIFE build — it always
 runs somewhere `import`/`require` already resolves (Node, a serverless
 function, a bundler), so there's nothing for it to solve there.
 
+## WalletConnect: for a payer with a wallet app, not an extension
+
+`createWalletPayment()`/`createSwapPayment()`'s third argument is
+"anything shaped like an injected provider" — it doesn't have to be
+`window.ethereum`. `@klappay/checkout-kit/client/walletconnect` is a
+second, independent way to obtain one, for a payer who only has a
+wallet *app* to pair with (mobile Safari/Chrome with no in-app wallet
+browser, or any desktop browser with no wallet extension installed):
+
+```bash
+pnpm add @walletconnect/universal-provider
+```
+
+```ts
+import { createWalletConnectProvider } from '@klappay/checkout-kit/client/walletconnect'
+import { createWalletPayment } from '@klappay/checkout-kit/client'
+
+const wc = await createWalletConnectProvider({
+  projectId: 'YOUR_REOWN_CLOUD_PROJECT_ID',
+  chainIds: [option.chainId],
+  metadata: {
+    name: 'Your Store',
+    description: 'Checkout for Your Store',
+    url: 'https://your-store.com',
+    icons: ['https://your-store.com/icon.png'],
+  },
+})
+
+wc.on('uri', (uri) => renderYourOwnQrCodeOrDeepLink(uri))
+
+const provider = await wc.connect() // resolves once the payer approves on their phone
+const wallet = createWalletPayment(option, payload.address, provider)
+await wallet.connect()
+await wallet.pay()
+```
+
+Everything past `wc.connect()` is identical to the injected-wallet
+flow above — same `wallet.on('sent'|'status'|'error', ...)`, same
+`switchChain()` behavior, same `createSwapPayment()` if you're doing
+swap-to-pay instead. WalletConnect is purely a different way to *get*
+a provider; nothing about paying with one changes.
+
+`projectId` is a free registration at
+[cloud.reown.com](https://cloud.reown.com) under your own domain — it
+can't be baked into this package as a default, since WalletConnect's
+relay infrastructure meters/rate-limits usage per project and ties the
+"verified" badge shown in the payer's wallet to your domain, not
+this package's. `chainIds` is every chain the payer might pay on in
+this session — WalletConnect requires the full set to be pre-approved
+at connect time (unlike an injected wallet, it can't add a chain mid-
+session; see `wallet_addEthereumChain` above, which doesn't apply
+here). No modal or QR-rendering code ships with this subpath —
+`wc.on('uri', ...)` hands you the raw pairing string, same "bring your
+own" stance as `buildPaymentUri()`.
+
+`@walletconnect/universal-provider` is a `peerDependency`
+(`peerDependenciesMeta.optional: true`), not a regular dependency — a
+real, several-MB piece of the WalletConnect relay/pairing protocol, so
+only installed by whoever actually imports this subpath. This subpath
+has no IIFE build either, unlike `/client` — wiring up a
+`projectId`/rendering a QR code assumes a build step already exists.
+
 ## What this doesn't do
 
-- No WalletConnect or any wallet that isn't an injected EIP-1193
-  provider — no `window.ethereum` (a mobile browser tab, not a wallet
-  app's in-app browser) means no wallet flow; QR/manual-address
-  payment still works there.
-- No `wallet_addEthereumChain` retry if the wallet doesn't already have
-  the target network configured (`wallet_switchEthereumChain` error
-  `4902`) — `pay()` lets that error surface as-is.
+- No WalletConnect modal/QR-renderer — `client/walletconnect`'s
+  `'uri'` event hands you the raw pairing string, same "bring your
+  own" stance as `buildPaymentUri()`.
 - No classification of wallet errors — `error.code === 4001` on the
   `'error'` event means the payer rejected the transaction; anything
   else is provider-specific. No UI copy belongs in this package.

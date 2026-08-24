@@ -312,21 +312,140 @@ klap-checkout's `src/lib/redirect-url.ts` scheme check (only
 ...` with it; the raw field is trusted only once `status === 'confirmed'`,
 same as klap-checkout's `ResolvedPanel`.
 
+## Chain auto-add: `wallet_addEthereumChain` fallback
+
+`switchChain(provider, chainId)` (`client/wallet.ts`) is the one place
+both `createWalletPayment()`'s `pay()` and `createSwapPayment()`'s
+`pay()` request a chain switch — extracted once the two calls became
+verbatim-identical (same reasoning as `createEmitter()`/
+`watchAccountChanges()` above). It first tries
+`wallet_switchEthereumChain` alone, same as before; only on that
+failing with `error.code === 4902` ("unrecognized chain") does it
+reach for `wallet_addEthereumChain`, using this package's own
+`client/chain-metadata.ts` (`getAddEthereumChainParams()`) for the
+`chainName`/`nativeCurrency`/`rpcUrls`/`blockExplorerUrls` payload,
+then retries the switch once more. Any other rejection (including a
+still-4902 chain this package has no metadata for, or the retried
+switch itself failing) surfaces as the original provider error
+untouched — never silently swallowed. This matters more here than in
+klap-checkout, since this package also resolves polygon/arbitrum/
+avalanche/bnb, networks a default wallet is less likely to have
+preloaded than base/optimism/ethereum.
+
+`chain-metadata.ts`'s chain table is built once, keyed by numeric
+`chainId` (globally unique across every network+environment
+`CHAIN_IDS` returns, so no separate network/environment lookup is
+needed), from `CHAIN_IDS`/`EVM_NETWORKS`/`NETWORK_EXPLORERS`/
+`NETWORK_LABELS` — imported from **`@klappay/types/constants`**, not
+the main `@klappay/types` export, for the same bundle-size reason
+`permit2.ts`/`confirming.ts` already do (see "Network/token constants"
+above) — importing the main export here by mistake once ballooned the
+`/client` IIFE from ~7KB to over 100KB during development — caught by
+eyeballing `pnpm build`'s tsup output, not an automated check; there is
+no CI bundle-size gate on this repo. `nativeCurrency` (name/symbol/
+decimals per network) and a public RPC URL per (network, environment)
+are this package's own small tables — `@klappay/types` has no RPC URL
+concept, so these are the one part of the fallback this package
+genuinely owns rather than reuses. `NETWORK_EXPLORERS` only has a
+`live` value per network (no `test` counterpart upstream), so
+`blockExplorerUrls` is included for `live` chains only and omitted for
+`test` ones rather than pointing at the wrong explorer.
+
+## WalletConnect: an optional peer-dependency subpath
+
+`client/wallet.ts`'s `createWalletPayment()`/`client/swap.ts`'s
+`createSwapPayment()` only ever *consume* an `Eip1193Provider` — how
+that provider was obtained (an injected `window.ethereum`, or
+something else) is deliberately outside their concern. This is what
+makes WalletConnect support (a payer with a wallet *app*, not a
+browser extension — mobile Safari/Chrome, or even desktop with no
+extension installed) addable as a second, independent way to *obtain*
+a provider, with **zero changes** to either payment controller:
+`client/walletconnect.ts`'s `createWalletConnectProvider({ projectId,
+chainIds, metadata })` returns `{ connect, disconnect, on }`, and
+`connect()` resolves to a plain `Eip1193Provider` — pass it as the
+third argument to `createWalletPayment()`/`createSwapPayment()`
+exactly like an injected provider, unchanged.
+
+`@walletconnect/universal-provider` (not `@walletconnect/ethereum-provider`,
+its more "batteries-included" EVM-specific sibling) is the dependency
+here — checked via `npm view`, `ethereum-provider` pulls in
+`@reown/appkit` (viem, valtio, a whole modal/UI stack) as a hard
+dependency, ~6MB unpacked, regardless of whether its modal is actually
+used. `universal-provider` alone is still real weight (~2.5MB
+unpacked — the WalletConnect relay/pairing/sign-client protocol stack
+itself, unavoidable for speaking WalletConnect at all) but carries none
+of the UI/modal baggage, matching this package's "no forced UI, no
+DOM assumptions" stance elsewhere (`buildPaymentUri()`'s "bring your
+own QR library"). `provider.on('display_uri', ...)` (renamed `'uri'`
+on this package's own emitter) is fully documented and independent of
+any modal — the integrator renders the URI as a QR code (desktop) or a
+deep link (mobile) however they choose.
+
+Because of the weight difference from the rest of this package (a few
+KB vs. megabytes), `@walletconnect/universal-provider` is a
+**`peerDependency`** (`peerDependenciesMeta.optional: true`), not a
+regular `dependency` — an integrator who never imports
+`@klappay/checkout-kit/client/walletconnect` never installs it. This
+is also why the subpath gets its own `tsup.config.ts` entry, ESM only
+(unlike `/client`'s ESM+IIFE pair) — `noExternal` is deliberately
+**not** set for it, so the peer stays external in the build output
+(`dist/client/walletconnect.js` is ~2KB) instead of getting bundled
+into this package's own published size. No IIFE for this subpath:
+anyone wiring up a Reown Cloud `projectId` and rendering their own QR
+code is assumed to already have a bundler, unlike the truly
+build-step-free case the base `/client` IIFE exists for.
+
+`toEip1193Provider()` (`client/walletconnect.ts`) is a thin adapter,
+not a passthrough, for one concrete, verified-by-reading-the-actual-
+published-source reason: `UniversalProvider`'s `eip155` sub-provider
+returns `eth_chainId` as a raw JS `number` (confirmed by reading
+`@walletconnect/universal-provider`'s compiled output directly, not
+assumed from docs — its docs don't cover this), where every EIP-1193
+provider (and this package's own `switchChain()`, which calls
+`.toLowerCase()` on the result) expects a `0x`-prefixed hex string.
+Handled by normalizing just that one method's result; every other
+method passes through untouched. Confirmed against the real
+WalletConnect relay (not just mocked unit tests) with a live
+`projectId` during development — `UniversalProvider.init()`/`connect()`
+produced a real `wc:...` pairing URI end to end, catching a genuine
+Node ESM/CJS interop bug (`@walletconnect/universal-provider`'s
+package.json has no `"import"` export condition, only `"module"`
+—non-standard, Node-unrecognized— and `"default"`, so a default
+import resolved to the whole CJS `module.exports` object instead of
+the class; fixed by using the named `{ UniversalProvider }` import for
+the runtime value and a separate type-only default import for the
+instance type) that a mocked-only test suite would not have surfaced.
+
+`optionalNamespaces.eip155.methods` requested at `connect()` is kept
+to exactly `['eth_sendTransaction', 'eth_signTypedData_v4']` — the two
+methods that genuinely need a live wallet round-trip. Reading
+`Eip155Provider`'s actual `request()` switch statement: `eth_chainId`/
+`eth_requestAccounts`/`eth_accounts`/`wallet_switchEthereumChain` are
+all handled **locally** by the sub-provider regardless of the
+requested `methods` list (no wallet round-trip, no extra permission
+needed), and anything else not in that switch and not in `methods`
+(`eth_call`, `eth_getTransactionReceipt` — both read-only, used by
+`swap.ts`'s allowance check/approval-receipt poll) automatically falls
+through to a plain public RPC HTTP call instead of the wallet — exactly
+what you want for a read that doesn't need signing. Keeping the
+requested `methods` list minimal means a smaller, less alarming
+permission prompt on the wallet side, not a missing capability.
+`wallet_switchEthereumChain` deliberately isn't requested either: every
+`chainId` a `createWalletConnectProvider()` caller might switch to must
+already be pre-declared in `chainIds` at `connect()` time (WalletConnect's
+whole model — approved chains are fixed at pairing time, not added ad
+hoc), so `isChainApproved()` is always true for this package's own
+switch attempts and the local-only path is always taken; this package's
+own `getAddEthereumChainParams()`/`wallet_addEthereumChain` fallback (see
+"Chain auto-add" above) does not apply to a WalletConnect-backed
+provider at all — `Eip155Provider`'s own unapproved-chain rejection is a
+plain `Error` with no `.code`, so `switchChain()`'s `isUnrecognizedChainError()`
+guard naturally never fires for it, and the original error just surfaces,
+same as any other non-4902 rejection.
+
 ## Known gaps (accepted, same as klap-checkout)
 
-- **No WalletConnect / mobile-browser-without-injected-provider
-  support.** `client/wallet.ts` is EIP-1193-injected-provider-only,
-  same limitation klap-checkout's own CLAUDE.md documents as "phase 2,
-  not implemented." A payer on a mobile browser tab (not a wallet app's
-  in-app browser) has no `window.ethereum` to talk to — document this
-  for integrators rather than silently failing.
-- **No `wallet_addEthereumChain` fallback** when
-  `wallet_switchEthereumChain` fails with "unrecognized chain" (error
-  `4902`) — same gap klap-checkout's own `wallet.js` has. Matters more
-  here than in klap-checkout, since this package also resolves
-  polygon/arbitrum/avalanche/bnb, networks a default wallet is less
-  likely to have preloaded than base/optimism/ethereum. Applies equally
-  to `createSwapPayment()`'s chain switch.
 - **`error.code === 4001` (user-rejected) is not specially classified**
   — `pay()` just re-throws/emits the raw provider error, `error.code`
   is still inspectable by the caller. No UI copy belongs in this
@@ -343,14 +462,27 @@ same as klap-checkout's `ResolvedPanel`.
 Same standard as klap-checkout: a test has to exercise real
 behavior/branching and would fail if the logic broke. Pure logic
 (`wallet-payment.ts`, `payment-uri.ts`, `client/confirming.ts`,
-`client/wallet.ts`, `client/permit2.ts`, `client/emitter.ts`) is fully
-unit-tested with real fixtures (see
+`client/wallet.ts`, `client/permit2.ts`, `client/emitter.ts`,
+`client/chain-metadata.ts`) is fully unit-tested with real fixtures (see
 `src/node/wallet-payment.test.ts` for the `Charge` fixture shape,
 mirroring klap-checkout's own `src/test/charge-fixture.ts`). DOM-only
 tests (`localStorage`) opt into `// @vitest-environment jsdom` per file
 — the suite defaults to Node, same as klap-checkout, so a stray
 `window` global doesn't silently satisfy `assertServerOnly()` during a
 node-module test.
+
+`client/walletconnect.ts` is the one exception to "real fixtures, no
+mocks" — `vi.mock('@walletconnect/universal-provider', ...)` stands in
+for the real relay/pairing protocol, which a unit test can't
+reasonably drive end to end. That mock is not the only verification
+this file got: during development it was also run against the real
+WalletConnect relay with a live `projectId`, which is what actually
+caught the CJS/ESM interop bug described above — a reminder that a
+green mocked suite proves the adapter's own logic, not that it's wired
+to the real dependency correctly. `walletconnect.test.ts` also has one
+integration-style test that feeds `createWalletConnectProvider()`'s
+resolved provider straight into `createWalletPayment()`, exercising
+the two modules together rather than each in isolation.
 
 ## Code style
 
