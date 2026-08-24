@@ -25,9 +25,10 @@ at this repo's own build instead).
   handler), a static route serving the IIFE bundle from
   `node_modules`, and a static route serving `public/`.
 - `public/index.html` + `public/app.js` — the browser side: renders
-  payment options, connects a wallet, tracks "confirming" state across
-  a reload, watches for the terminal status over SSE, and redirects on
-  confirmation.
+  payment options, discovers installed wallets via `discoverProviders()`
+  (EIP-6963) and shows a picker when more than one is found, connects a
+  wallet, tracks "confirming" state across a reload, watches for the
+  terminal status over SSE, and redirects on confirmation.
 - `public/swap.js` — swap-to-pay: one button per
   `payload.swapAlternatives` entry, requests a quote from the server
   above once the wallet is connected, then executes it with
