@@ -42,6 +42,11 @@ export function useSwapPayment(chargeId: string) {
       swap.on('sent', (hash) => {
         setTxHash(hash)
         saveConfirming(chargeId, alt.network, hash)
+        fetch(`/api/checkout/${chargeId}/check`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ txHash: hash, network: alt.network }),
+        }).catch((err) => console.error('checkCheckout failed', err))
       })
       swap.on('error', setError)
 

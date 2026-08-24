@@ -14,6 +14,7 @@ import {
 import type { ConfirmingRecord, PaymentOption } from '@klappay/checkout-kit/client'
 import { useCheckoutPayload, useWalletPayment } from './hooks'
 import { SwapAlternatives } from './SwapAlternatives'
+import { useWalletConnectPayment } from './walletconnect-hooks'
 
 export function CheckoutButton({ chargeId }: { chargeId: string }) {
   const { payload, error } = useCheckoutPayload(chargeId)
@@ -24,6 +25,11 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
   const walletPayable = option ? isWalletPayable(option) : false
 
   const { account, status, txHash, connect, pay } = useWalletPayment(
+    walletPayable ? option : null,
+    payload?.address,
+  )
+  const walletConnect = useWalletConnectPayment(
+    chargeId,
     walletPayable ? option : null,
     payload?.address,
   )
@@ -38,7 +44,19 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
     if (!payload || !option || !txHash) return
     saveConfirming(payload.id, option.network, txHash)
     setConfirming(getConfirming(payload.id))
+
+    fetch(`/api/checkout/${payload.id}/check`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ txHash, network: option.network }),
+    }).catch((err) => console.error('checkCheckout failed', err))
   }, [payload, option, txHash])
+
+  useEffect(() => {
+    if (!payload || !option || !walletConnect.txHash) return
+    saveConfirming(payload.id, option.network, walletConnect.txHash)
+    setConfirming(getConfirming(payload.id))
+  }, [payload, option, walletConnect.txHash])
 
   useEffect(() => {
     if (!payload) return
@@ -116,6 +134,28 @@ export function CheckoutButton({ chargeId }: { chargeId: string }) {
           )}
           {status === 'error' && <p>Something went wrong. Please try again.</p>}
           {txHash && <p>Sent: {txHash}</p>}
+
+          {walletConnect.available && (
+            <div>
+              <p>Or pay with a wallet app instead of a browser extension:</p>
+              {!walletConnect.account ? (
+                <button onClick={walletConnect.connect} disabled={walletConnect.status === 'connecting'}>
+                  {walletConnect.status === 'connecting' ? 'Connecting…' : 'Pay with WalletConnect'}
+                </button>
+              ) : (
+                <button onClick={walletConnect.pay} disabled={walletConnect.status === 'paying'}>
+                  {walletConnect.status === 'paying' ? 'Confirm in wallet…' : 'Pay now'}
+                </button>
+              )}
+              {walletConnect.uri && (
+                <p>
+                  Scan or open with your wallet app: <code>{walletConnect.uri}</code>
+                </p>
+              )}
+              {walletConnect.error != null && <p>WalletConnect payment failed. Please try again.</p>}
+              {walletConnect.txHash && <p>Sent: {walletConnect.txHash}</p>}
+            </div>
+          )}
         </div>
       ) : (
         <div>

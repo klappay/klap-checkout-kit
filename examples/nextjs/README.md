@@ -11,11 +11,17 @@ crypto checkout built on `@klappay/checkout-kit`:
   webhook deliveries via `constructWebhookEvent()`.
 - `app/api/checkout/[id]/quote/route.ts` — quotes a swap-to-pay via
   `checkout.getSwapQuote()`.
+- `app/api/checkout/[id]/check/route.ts` — triggers an immediate on-chain
+  re-check via `checkout.checkCheckout()`, instead of waiting out the
+  ~60s background reconciliation pass. Called right after a wallet
+  transaction is sent (both `hooks.ts` and `swap-hooks.ts`).
 - `app/checkout/[id]/` — a checkout page: connect a wallet, pay, watch live
   status, fall back to a manual address for pairs with no wallet mapping,
   survive a reload mid-confirmation, and redirect once the charge is
   confirmed. `swap-hooks.ts` + `SwapAlternatives.tsx` add swap-to-pay —
-  one button per `payload.swapAlternatives` entry.
+  one button per `payload.swapAlternatives` entry. `walletconnect-hooks.ts`
+  adds an alternative "Pay with WalletConnect" flow, for a payer with a
+  wallet app instead of a browser extension (see "WalletConnect" below).
 
 See [`docs/checkout-flow.md`](https://github.com/klappay/klap-checkout-kit/blob/main/docs/checkout-flow.md)
 in the main package for the full walkthrough this app implements.
@@ -41,6 +47,17 @@ KLAP_API_KEY=your-api-key
 KLAP_BASE_URL=your-base-url
 KLAP_WEBHOOK_SECRET=your-webhook-secret
 ```
+
+Optionally, to see the "Pay with WalletConnect" button (payer has a
+wallet app, not a browser extension), also set:
+
+```
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-reown-cloud-project-id
+```
+
+Register a free project id at [cloud.reown.com](https://cloud.reown.com) —
+without it, that button is simply hidden and only the injected-wallet flow
+shows.
 
 Then:
 
