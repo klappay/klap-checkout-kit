@@ -47,8 +47,25 @@ if (!getInjectedProvider()) {
 
 With multiple wallets installed at once (e.g. MetaMask + Coinbase
 Wallet), `window.ethereum` is whichever one last claimed the slot —
-`window.ethereum.providers` (an array, when present) is how the payer
-picks:
+`discoverProviders()` is the standardized (EIP-6963) way to let the
+payer pick instead of guessing:
+
+```ts
+import { discoverProviders } from '@klappay/checkout-kit/client'
+
+const providers = await discoverProviders() // [{ info: { uuid, name, icon, rdns }, provider }, ...]
+// render one button per providers[].info.name/.icon, then:
+const chosen = providers.find((p) => p.info.name === 'MetaMask')
+const wallet = createWalletPayment(option, payload.address, chosen?.provider)
+```
+
+`discoverProviders()` dispatches the standard `eip6963:requestProvider`
+event and collects every wallet extension that responds — real name,
+real icon, no guessing at `window.ethereum`. It's a one-shot call (not
+a persistent listener), so call it again if a wallet extension loads
+after the page does. For a wallet that predates EIP-6963,
+`window.ethereum.providers` (an array, when present) is still a
+fallback:
 
 ```ts
 const providers = window.ethereum?.providers ?? (window.ethereum ? [window.ethereum] : [])

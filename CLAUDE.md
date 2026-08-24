@@ -444,6 +444,58 @@ plain `Error` with no `.code`, so `switchChain()`'s `isUnrecognizedChainError()`
 guard naturally never fires for it, and the original error just surfaces,
 same as any other non-4902 rejection.
 
+## EIP-6963: no persistent listener, on purpose
+
+`discoverProviders()` (`client/eip6963.ts`) is the last of the four
+wallet-integration gaps from this session — much smaller than the
+other three, since it's a browser event contract, not a protocol
+stack: dispatch `eip6963:requestProvider`, collect whatever wallets
+respond with `eip6963:announceProvider` (`{ uuid, name, icon, rdns }` +
+the provider itself, already a usable `Eip1193Provider` — no further
+handshake needed). Lets an integrator build a real "choose your
+wallet" list instead of `getInjectedProvider()`'s single, non-
+deterministic `window.ethereum` guess.
+
+It's its own file, not folded into `wallet.ts`, for the same reason
+`chain-metadata.ts`/`permit2.ts` are separate from the files that use
+them — a self-contained protocol contract is its own responsibility.
+It also needs `// @vitest-environment jsdom` for its test file (real
+`window`/`CustomEvent`), and keeping it out of `wallet.ts` means
+`wallet.test.ts` stays on the default Node environment untouched —
+same reasoning as `confirming.test.ts` being the one other file that
+opts into jsdom (see "Test discipline" below).
+
+Deliberately **not** a persistent `window.addEventListener(...)`
+registered at module scope on import — two concrete reasons, not just
+caution: this package's `package.json` has `"sideEffects": false`
+(bundlers are told importing any module here does nothing on its own
+and may reorder or drop unused ones), and several of this session's
+own example apps (Next.js/Nuxt/SvelteKit) are SSR frameworks that can
+import client code during a Node build pass with no `window` at all —
+a top-level DOM call would throw there. `discoverProviders()` instead
+does everything inside the function call itself: listen, dispatch,
+wait one `setTimeout(..., 0)` macrotask tick, clean up, resolve —
+matching `getInjectedProvider()`'s existing "no work until called"
+shape exactly. Verified against a real browser (not just the jsdom
+test), same rigor as the WalletConnect relay check above: injected a
+fake wallet responding to `eip6963:requestProvider` on a live page via
+`claude-in-chrome` and confirmed `discoverProviders()` actually
+resolves with it.
+
+Accepted trade-off from this design: it only catches wallets that
+respond to an *active* `eip6963:requestProvider` — which is what the
+spec requires every compliant wallet to listen for and answer, so this
+is the correct primary signal, not a passive one-time announcement a
+persistent listener would also catch if it happened to already be
+registered before that wallet's own page-load announcement fired.
+
+No changes to `createWalletPayment()`/`createSwapPayment()`'s default
+provider resolution — `getInjectedProvider()` stays the default for
+both. `discoverProviders()` is purely additive, using the exact same
+third-argument extension point already used for the
+`window.ethereum.providers` legacy workaround (`docs/client.md`) and
+for a WalletConnect-obtained provider.
+
 ## Known gaps (accepted, same as klap-checkout)
 
 - **`error.code === 4001` (user-rejected) is not specially classified**
@@ -463,11 +515,12 @@ Same standard as klap-checkout: a test has to exercise real
 behavior/branching and would fail if the logic broke. Pure logic
 (`wallet-payment.ts`, `payment-uri.ts`, `client/confirming.ts`,
 `client/wallet.ts`, `client/permit2.ts`, `client/emitter.ts`,
-`client/chain-metadata.ts`) is fully unit-tested with real fixtures (see
-`src/node/wallet-payment.test.ts` for the `Charge` fixture shape,
-mirroring klap-checkout's own `src/test/charge-fixture.ts`). DOM-only
-tests (`localStorage`) opt into `// @vitest-environment jsdom` per file
-— the suite defaults to Node, same as klap-checkout, so a stray
+`client/chain-metadata.ts`, `client/eip6963.ts`) is fully unit-tested
+with real fixtures (see `src/node/wallet-payment.test.ts` for the
+`Charge` fixture shape, mirroring klap-checkout's own
+`src/test/charge-fixture.ts`). DOM-only tests (`localStorage`,
+`window`/`CustomEvent`) opt into `// @vitest-environment jsdom` per
+file — the suite defaults to Node, same as klap-checkout, so a stray
 `window` global doesn't silently satisfy `assertServerOnly()` during a
 node-module test.
 

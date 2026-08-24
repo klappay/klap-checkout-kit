@@ -106,6 +106,17 @@ if handed an option with no wallet mapping — filter with
 `payload.address` directly (as a static "send to this address" QR/text)
 instead of calling `buildPaymentUri()` on it.
 
+With more than one wallet extension installed, `discoverProviders()`
+(EIP-6963) lets the payer pick instead of `createWalletPayment()`
+guessing at `window.ethereum`:
+
+```ts
+import { discoverProviders } from '@klappay/checkout-kit/client'
+
+const providers = await discoverProviders() // [{ info: { name, icon, rdns, uuid }, provider }, ...]
+const wallet = createWalletPayment(option, payload.address, providers[0]?.provider)
+```
+
 Tracking "confirming" state across a reload, before your own status
 route reflects it:
 
