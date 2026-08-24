@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { createWalletPayment } from '@klappay/checkout-kit/client'
 import type { PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
+import type { createWalletConnectProvider } from '@klappay/checkout-kit/client/walletconnect'
 
 export function useWalletConnectPayment(option: PaymentOption, recipientAddress: string) {
   if (option.chainId === null) {
@@ -13,6 +14,7 @@ export function useWalletConnectPayment(option: PaymentOption, recipientAddress:
   const txHash = ref<string | null>(null)
   const error = ref<unknown>(null)
   const uri = ref<string | null>(null)
+  let wcHandle: Awaited<ReturnType<typeof createWalletConnectProvider>> | null = null
 
   async function connect() {
     if (!import.meta.client) return
@@ -33,6 +35,7 @@ export function useWalletConnectPayment(option: PaymentOption, recipientAddress:
           icons: [],
         },
       })
+      wcHandle = wc
       wc.on('uri', (u) => {
         uri.value = u
       })
@@ -62,5 +65,15 @@ export function useWalletConnectPayment(option: PaymentOption, recipientAddress:
     }
   }
 
-  return { account, status, txHash, error, uri, connect }
+  async function disconnect() {
+    await wcHandle?.disconnect()
+    wcHandle = null
+    account.value = null
+    status.value = 'idle'
+    txHash.value = null
+    error.value = null
+    uri.value = null
+  }
+
+  return { account, status, txHash, error, uri, connect, disconnect }
 }

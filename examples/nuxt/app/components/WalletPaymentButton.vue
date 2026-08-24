@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { watch } from 'vue'
-import { saveConfirming } from '@klappay/checkout-kit/client'
-import type { PaymentOption } from '@klappay/checkout-kit/client'
-import { useWalletPayment } from '~/composables/useWalletPayment'
+import { onMounted, ref } from 'vue'
+import { discoverProviders } from '@klappay/checkout-kit/client'
+import type { Eip1193Provider, Eip6963ProviderDetail, PaymentOption } from '@klappay/checkout-kit/client'
+import WalletPaymentButtonInner from './WalletPaymentButtonInner.vue'
 
 const props = defineProps<{
   option: PaymentOption
@@ -10,35 +10,46 @@ const props = defineProps<{
   chargeId: string
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   sent: [txHash: string]
 }>()
 
-const { account, status, txHash, error, connect, pay } = useWalletPayment(props.option, props.address)
+const providers = ref<Eip6963ProviderDetail[]>([])
+const chosenProvider = ref<Eip1193Provider | undefined>(undefined)
+const ready = ref(false)
 
-watch(txHash, (hash) => {
-  if (!hash) return
-  saveConfirming(props.chargeId, props.option.network, hash)
-  emit('sent', hash)
-
-  // Trigger an immediate on-chain re-check instead of waiting out the
-  // ~60s background reconciliation pass — watchCheckoutEvents() above
-  // still picks up the result either way.
-  $fetch(`/api/checkout/${props.chargeId}/check`, {
-    method: 'POST',
-    body: { txHash: hash, network: props.option.network },
-  }).catch((err) => console.error('checkCheckout failed', err))
+onMounted(async () => {
+  providers.value = await discoverProviders()
+  ready.value = true
 })
 </script>
 
 <template>
   <div style="border: 1px solid #ccc; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem">
     <p>Pay via <strong>{{ option.token }}</strong> on <strong>{{ option.network }}</strong></p>
-    <button v-if="!account" type="button" @click="connect">Connect wallet</button>
-    <button v-else type="button" :disabled="status === 'paying'" @click="pay">
-      {{ status === 'paying' ? 'Confirm in wallet…' : 'Pay now' }}
-    </button>
-    <p v-if="txHash">Sent: {{ txHash }}</p>
-    <p v-if="error" style="color: red">Error: {{ error instanceof Error ? error.message : String(error) }}</p>
+
+    <p v-if="!ready" class="muted">Checking for installed wallets…</p>
+
+    <div v-else-if="providers.length >= 2 && !chosenProvider">
+      <p>More than one wallet found — choose one:</p>
+      <button
+        v-for="{ info, provider } in providers"
+        :key="info.uuid"
+        type="button"
+        @click="chosenProvider = provider"
+      >
+        <img v-if="info.icon" :src="info.icon" alt="" width="20" height="20" />
+        {{ info.name }}
+      </button>
+    </div>
+
+    <WalletPaymentButtonInner
+      v-else
+      :option="option"
+      :address="address"
+      :charge-id="chargeId"
+      :provider="chosenProvider"
+      @sent="(hash) => $emit('sent', hash)"
+    />
   </div>
 </template>

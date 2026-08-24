@@ -32,14 +32,29 @@ at this repo's own build instead).
 - `app/composables/useWalletPayment.ts` — the Vue Composition API
   wallet controller wrapper (`ref`/`onUnmounted`), from this package's
   own docs (`docs/frameworks.md`).
-- `app/components/WalletPaymentButton.vue` — connect/pay button for one
-  wallet-payable `PaymentOption`, using the composable above. Calls the
-  `/check` route above the moment a transaction is sent.
+- `app/components/WalletPaymentButton.vue` — calls `discoverProviders()`
+  (EIP-6963) on mount; with 0 or 1 wallet found it renders
+  `WalletPaymentButtonInner.vue` straight away (default injected-wallet
+  behavior, unchanged), with 2+ it shows a picker (real name/icon per
+  wallet) first and only renders the inner component once the payer
+  picks one. Split into two components because Vue composables can't
+  be called conditionally — `WalletPaymentButtonInner.vue` is the one
+  that actually calls `useWalletPayment()`, deferred until a provider
+  is known.
+- `app/composables/useWalletPayment.ts` — the Vue Composition API
+  wallet controller wrapper (`ref`/`onUnmounted`), from this package's
+  own docs (`docs/frameworks.md`), extended with an optional third
+  `provider` argument for the picker above.
+- `app/components/WalletPaymentButtonInner.vue` — connect/pay button
+  for one wallet-payable `PaymentOption` and an optional pre-chosen
+  provider, using the composable above. Calls the `/check` route the
+  moment a transaction is sent.
 - `app/composables/useWalletConnectPayment.ts` +
   `app/components/WalletConnectPaymentButton.vue` — the same payment
   flow via `@klappay/checkout-kit/client/walletconnect` instead of an
   injected wallet, for a payer with only a wallet *app* to pair with.
-  See "WalletConnect" below.
+  Includes a "Disconnect" button once connected. See "WalletConnect"
+  below.
 - `app/composables/useSwapPayment.ts` — the swap-to-pay equivalent:
   fetches a quote from the route above, then wraps `createSwapPayment`.
 - `app/components/SwapPaymentButton.vue` — pay button for one
@@ -99,7 +114,8 @@ desktop, encode it as a QR yourself and scan it from your phone.
 
 By default this example depends on `@klappay/checkout-kit@latest` from
 npm, so it doubles as a live smoke test of whatever is actually
-published. To test against changes made in this repo instead:
+published — `discoverProviders()` (EIP-6963) specifically needs this,
+since it landed on `main` after the last published release.
 
 ```bash
 # from the repo root
@@ -115,5 +131,14 @@ committing anything in this folder:
 
 ```bash
 pnpm unlink @klappay/checkout-kit
+pnpm install
+```
+
+If `pnpm install` doesn't actually pick up the real `latest` afterward
+(the lockfile can get stuck pointing at the local `link:../..`
+override even after unlinking), remove the lockfile and reinstall:
+
+```bash
+rm -rf node_modules pnpm-lock.yaml .nuxt .output
 pnpm install
 ```

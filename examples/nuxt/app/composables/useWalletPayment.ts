@@ -1,8 +1,8 @@
 import { onUnmounted, ref } from 'vue'
 import { createWalletPayment, isWalletPayable } from '@klappay/checkout-kit/client'
-import type { PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
+import type { Eip1193Provider, PaymentOption, WalletStatus } from '@klappay/checkout-kit/client'
 
-export function useWalletPayment(option: PaymentOption, recipientAddress: string) {
+export function useWalletPayment(option: PaymentOption, recipientAddress: string, provider?: Eip1193Provider) {
   if (!isWalletPayable(option)) {
     throw new Error('Option is not wallet-payable')
   }
@@ -12,7 +12,7 @@ export function useWalletPayment(option: PaymentOption, recipientAddress: string
   const txHash = ref<string | null>(null)
   const error = ref<unknown>(null)
 
-  const wallet = import.meta.client ? createWalletPayment(option, recipientAddress) : null
+  const wallet = import.meta.client ? createWalletPayment(option, recipientAddress, provider) : null
 
   const offAccount = wallet?.on('account', (a) => {
     account.value = a

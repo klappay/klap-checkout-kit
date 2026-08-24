@@ -14,7 +14,10 @@ const emit = defineEmits<{
   sent: [txHash: string]
 }>()
 
-const { status, txHash, error, uri, connect } = useWalletConnectPayment(props.option, props.address)
+const { account, status, txHash, error, uri, connect, disconnect } = useWalletConnectPayment(
+  props.option,
+  props.address,
+)
 
 watch(txHash, (hash) => {
   if (!hash) return
@@ -33,9 +36,15 @@ watch(txHash, (hash) => {
     <p>
       Pay via <strong>{{ option.token }}</strong> on <strong>{{ option.network }}</strong> (WalletConnect)
     </p>
-    <button type="button" :disabled="status === 'awaiting-pairing' || status === 'paying'" @click="connect">
+    <button
+      v-if="!account"
+      type="button"
+      :disabled="status === 'awaiting-pairing' || status === 'paying'"
+      @click="connect"
+    >
       {{ status === 'awaiting-pairing' ? 'Waiting for wallet app…' : 'Pay with WalletConnect' }}
     </button>
+    <button v-else type="button" @click="disconnect">Disconnect</button>
     <p v-if="uri" style="word-break: break-all">
       Scan or open in your wallet app:
       <code>{{ uri }}</code>
