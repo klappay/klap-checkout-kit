@@ -63,6 +63,22 @@ app.post('/api/checkout/:id/quote', async (c) => {
   }
 })
 
+app.post('/api/checkout/:id/check', async (c) => {
+  const input = await c.req.json().catch(() => undefined)
+  try {
+    const payload = await checkout.checkCheckout(c.req.param('id'), input)
+    return c.json(payload)
+  } catch (err) {
+    if (err instanceof KlapApiError) {
+      if (err.status === 404) return c.json({ error: 'charge not found' }, 404)
+      if (err.status === 422 || err.status === 429 || err.status === 503) {
+        return c.json({ error: err.message }, err.status)
+      }
+    }
+    throw err
+  }
+})
+
 app.get('/api/checkout/:id/events', (c) => {
   return streamSSE(c, async (stream) => {
     const controller = new AbortController()

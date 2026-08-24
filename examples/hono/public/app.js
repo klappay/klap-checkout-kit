@@ -102,6 +102,15 @@ function renderOption(payload, option) {
   wallet.on('sent', (txHash) => {
     saveConfirming(payload.id, option.network, txHash)
     statusEl.textContent = `Sent — waiting for confirmation (tx ${txHash})`
+
+    // Trigger an immediate on-chain re-check instead of waiting out the
+    // ~60s background reconciliation pass — the SSE stream above still
+    // picks up the result either way.
+    fetch(`/api/checkout/${payload.id}/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash, network: option.network }),
+    }).catch((error) => console.error('checkCheckout failed', error))
   })
 
   wallet.on('error', (error) => {

@@ -19,9 +19,11 @@ at this repo's own build instead).
 - `src/server.ts` — a Hono app: `GET /api/checkout/:id` (fetches and
   shapes a `Charge` into a `CheckoutPayload`), `GET
   /api/checkout/:id/events` (SSE, live status), `POST
-  /api/checkout/:id/quote` (swap-to-pay quotes), `POST /webhooks/klap`
-  (verified webhook handler), a static route serving the IIFE bundle
-  from `node_modules`, and a static route serving `public/`.
+  /api/checkout/:id/quote` (swap-to-pay quotes), `POST
+  /api/checkout/:id/check` (instant on-chain re-check right after a
+  wallet transaction is sent), `POST /webhooks/klap` (verified webhook
+  handler), a static route serving the IIFE bundle from
+  `node_modules`, and a static route serving `public/`.
 - `public/index.html` + `public/app.js` — the browser side: renders
   payment options, connects a wallet, tracks "confirming" state across
   a reload, watches for the terminal status over SSE, and redirects on
@@ -30,6 +32,15 @@ at this repo's own build instead).
   `payload.swapAlternatives` entry, requests a quote from the server
   above once the wallet is connected, then executes it with
   `createSwapPayment()`.
+
+## No WalletConnect demo here, on purpose
+
+`@klappay/checkout-kit/client/walletconnect` has no IIFE build — it
+assumes a bundler resolves `@walletconnect/universal-provider`'s own
+tree of bare-specifier imports (a real, multi-package dependency, not
+something an import map can reasonably hand-list). That's the opposite
+of what this example is for. See the `nextjs`/`nuxt`/`sveltekit`
+examples for a working WalletConnect integration instead.
 
 ## Prerequisites
 
