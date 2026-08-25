@@ -1,6 +1,6 @@
 {
   "name": "@klappay/checkout-kit",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "license": "MIT",
   "description": "Build a custom Klappay checkout — turn a Charge into what a payment UI needs, and talk to an injected wallet, without reimplementing either.",
   "keywords": ["klap", "klappay", "checkout", "crypto", "payments", "web3"],
