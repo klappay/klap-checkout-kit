@@ -29,6 +29,7 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
     redirectUrl: null,
     checkoutUrl: null,
     splitRecipients: [],
+    escrow: null,
     ...overrides,
   }
 }
