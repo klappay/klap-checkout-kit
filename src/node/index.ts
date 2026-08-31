@@ -5,6 +5,7 @@ export type {
   AltToken,
   Charge,
   CheckChargeRequest,
+  CheckedCheckoutPayload,
   CheckoutPayload,
   ChargeStatus,
   CreateSwapQuoteInput,

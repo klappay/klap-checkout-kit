@@ -29,6 +29,10 @@ export type CheckoutPayload = {
   swapAlternatives: SwapAlternative[]
 }
 
+export type CheckedCheckoutPayload = CheckoutPayload & {
+  transactionSender: string | null
+}
+
 export const OPEN_STATUSES: ReadonlySet<ChargeStatus> = new Set(['pending', 'partially_paid'])
 
 export function isOpenStatus(status: ChargeStatus): boolean {

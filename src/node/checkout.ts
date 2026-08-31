@@ -1,7 +1,7 @@
 import { createClient } from '@klappay/node'
 import type { CreateClientOptions, KlapClient } from '@klappay/node'
 import type { Charge, CheckChargeRequest, CreateSwapQuoteInput, SwapQuote } from '@klappay/types'
-import type { CheckoutPayload } from '../types'
+import type { CheckedCheckoutPayload, CheckoutPayload } from '../types'
 import { watchCheckout } from './events'
 import { assertServerOnly } from './guard'
 import { toCheckoutPayload } from './payload'
@@ -27,9 +27,12 @@ export function createCheckoutKit(options: CreateCheckoutKitOptions = {}) {
     async getSwapQuote(chargeId: string, input: CreateSwapQuoteInput): Promise<SwapQuote> {
       return client.charges.getQuote(chargeId, input)
     },
-    async checkCheckout(chargeId: string, input?: CheckChargeRequest): Promise<CheckoutPayload> {
+    async checkCheckout(
+      chargeId: string,
+      input?: CheckChargeRequest,
+    ): Promise<CheckedCheckoutPayload> {
       const charge = await client.charges.check(chargeId, input)
-      return toCheckoutPayload(charge)
+      return { ...toCheckoutPayload(charge), transactionSender: charge.transactionSender }
     },
     watchCheckout(chargeId: string, signal?: AbortSignal): AsyncGenerator<CheckoutPayload> {
       return watchCheckout(client, chargeId, signal)

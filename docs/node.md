@@ -364,6 +364,11 @@ round trip — a `429` from `client.charges.check()` means someone
 already triggered a check recently; prefer `watchCheckout()` to observe
 the result instead of polling this repeatedly.
 
+The returned payload also carries `transactionSender` — the checked
+transaction's own signer, which stays the payer's real wallet even
+when the payment routed through a swap/aggregator, unlike the credited
+transfer's own sender. `null` when no matching receipt was found.
+
 ## Verifying webhooks
 
 `verifyWebhookSignature()`/`constructWebhookEvent()` are re-exported
