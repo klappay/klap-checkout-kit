@@ -4,10 +4,13 @@ export type {
   AcceptedPayment,
   AltToken,
   Charge,
+  ChargeFeePayer,
   CheckChargeRequest,
   CheckedCheckoutPayload,
+  CheckoutEvent,
   CheckoutPayload,
   ChargeStatus,
+  ConfirmationProgress,
   CreateSwapQuoteInput,
   Environment,
   Network,
@@ -19,7 +22,7 @@ export type {
 } from '../types'
 export { createCheckoutKit } from './checkout'
 export type { CreateCheckoutKitOptions } from './checkout'
-export { watchCheckout } from './events'
+export { watchCheckout, watchCheckoutWithProgress } from './events'
 export { toCheckoutPayload } from './payload'
 export { resolveRedirectUrl } from '../client/redirect-url'
 export { remainingAmountUnits, resolvePaymentOptions, toTokenUnits } from './wallet-payment'

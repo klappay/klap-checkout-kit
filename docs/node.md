@@ -61,6 +61,9 @@ Returns:
   [Instant re-check](#instant-re-check-after-a-payers-transaction) below.
 - `watchCheckout(chargeId, signal?)` — an `AsyncGenerator<CheckoutPayload>`
   for live status, see [Full checkout flow](/checkout-flow).
+- `watchCheckoutWithProgress(chargeId, signal?)` — same live connection,
+  plus confirmation-depth progress events, see
+  [Confirmation progress](#confirmation-progress-while-a-transfer-isnt-final-yet) below.
 - `client` — the underlying `@klappay/node` client, for anything this
   package doesn't wrap (webhook management, metrics, etc.).
 
@@ -78,6 +81,10 @@ not a `test` one:
   "status": "pending",
   "settlementStatus": null,
   "amount": 49.9,
+  "feePayer": "merchant",
+  "feePercent": 2,
+  "feeAmount": 0.998,
+  "merchantAmount": 48.902,
   "amountReceived": null,
   "isOverpaid": false,
   "currency": "USD",
@@ -122,6 +129,10 @@ type CheckoutPayload = {
   status: ChargeStatus // 'pending' | 'partially_paid' | 'confirmed' | 'expired' | 'underpaid'
   settlementStatus: SettlementStatus | null
   amount: number
+  feePayer: ChargeFeePayer // 'merchant' | 'payer'
+  feePercent: number
+  feeAmount: number
+  merchantAmount: number
   amountReceived: number | null
   isOverpaid: boolean
   currency: string
@@ -140,6 +151,15 @@ type PaymentOption = AcceptedPayment & {
   amountUnits: string
 }
 ```
+
+`feePercent`/`feeAmount`/`merchantAmount` let you render a price
+breakdown ("price: $48.90, fee: $1.00, total: $49.90") without
+reimplementing the math — `feeAmount` is `amount * feePercent / 100`
+and `merchantAmount` is `amount - feeAmount`, both computed by Core at
+read time. `feePayer` only affects what `amount` was set to at
+creation (`'payer'` grosses it up so you still net `merchantAmount`);
+what you actually net is always `merchantAmount`, regardless of
+`feePayer`.
 
 `apiKeyId`/`externalRef`/`source`/`metadata` are deliberately left out —
 that's the merchant's own bookkeeping, not something that needs to
@@ -183,8 +203,10 @@ import type {
   AcceptedPayment,
   AltToken,
   Charge,
+  ChargeFeePayer,
   CheckChargeRequest,
   ChargeStatus,
+  ConfirmationProgress,
   CreateSwapQuoteInput,
   Environment,
   Network,
@@ -198,10 +220,10 @@ import type {
 `CheckoutPayload` and `PaymentOption` are this package's own types —
 defined in `src/types.ts`, shared by both subpaths. Everything else in
 that second import (`AcceptedPayment`, `AltToken`, `Charge`,
-`ChargeStatus`, `CheckChargeRequest`, `CreateSwapQuoteInput`,
-`Environment`, `Network`, `SettlementStatus`, `SwapAlternative`,
-`SwapQuote`, `Token`) is re-exported straight from `@klappay/types`,
-purely for convenience —
+`ChargeFeePayer`, `ChargeStatus`, `CheckChargeRequest`,
+`ConfirmationProgress`, `CreateSwapQuoteInput`, `Environment`,
+`Network`, `SettlementStatus`, `SwapAlternative`, `SwapQuote`, `Token`)
+is re-exported straight from `@klappay/types`, purely for convenience —
 same types, same values at runtime, just reachable without a second
 package import.
 `Charge` is the one that isn't a field type of `CheckoutPayload` itself;
@@ -368,6 +390,41 @@ The returned payload also carries `transactionSender` — the checked
 transaction's own signer, which stays the payer's real wallet even
 when the payment routed through a swap/aggregator, unlike the credited
 transfer's own sender. `null` when no matching receipt was found.
+
+## Confirmation progress: while a transfer isn't final yet
+
+A transfer that's already on-chain but hasn't reached its network's
+required confirmation depth is invisible to a plain `watchCheckout()`
+— nothing changes on the `Charge` itself until it's credited, so a
+payer just sees a blank wait. `checkCheckout()`'s response also carries
+`confirmationProgress` for this: `{ network, blocksSeen, blocksRequired,
+percent }`, non-null only while a detected transfer is still short of
+depth (`percent` never reaches 100 — once a transfer is deep enough
+it's credited immediately and this goes back to `null`).
+
+For the live-stream equivalent, `watchCheckoutWithProgress(chargeId,
+signal?)` swaps `watchCheckout()`'s plain `AsyncGenerator<CheckoutPayload>`
+for an `AsyncGenerator<CheckoutEvent>` that also carries
+`confirmation_progress` events on the same connection:
+
+```ts
+type CheckoutEvent =
+  | { type: 'charge'; payload: CheckoutPayload }
+  | { type: 'confirmation_progress'; progress: ConfirmationProgress }
+```
+
+```ts
+app.get('/api/checkout/:id/events', async (c) => {
+  return streamSSE(c, async (stream) => {
+    for await (const event of checkout.watchCheckoutWithProgress(c.req.param('id'))) {
+      await stream.writeSSE({ event: event.type, data: JSON.stringify(event) })
+    }
+  })
+})
+```
+
+Use `watchCheckout()` if you only care about `status`/`settlementStatus`
+changes — it's unchanged and stays the simpler of the two.
 
 ## Verifying webhooks
 

@@ -1,6 +1,8 @@
 import type {
   AcceptedPayment,
+  ChargeFeePayer,
   ChargeStatus,
+  ConfirmationProgress,
   Environment,
   SettlementStatus,
   SwapAlternative,
@@ -17,6 +19,10 @@ export type CheckoutPayload = {
   status: ChargeStatus
   settlementStatus: SettlementStatus | null
   amount: number
+  feePayer: ChargeFeePayer
+  feePercent: number
+  feeAmount: number
+  merchantAmount: number
   amountReceived: number | null
   isOverpaid: boolean
   currency: string
@@ -31,7 +37,12 @@ export type CheckoutPayload = {
 
 export type CheckedCheckoutPayload = CheckoutPayload & {
   transactionSender: string | null
+  confirmationProgress: ConfirmationProgress | null
 }
+
+export type CheckoutEvent =
+  | { type: 'charge'; payload: CheckoutPayload }
+  | { type: 'confirmation_progress'; progress: ConfirmationProgress }
 
 export const OPEN_STATUSES: ReadonlySet<ChargeStatus> = new Set(['pending', 'partially_paid'])
 
@@ -47,8 +58,10 @@ export type {
   AcceptedPayment,
   AltToken,
   Charge,
+  ChargeFeePayer,
   ChargeStatus,
   CheckChargeRequest,
+  ConfirmationProgress,
   CreateSwapQuoteInput,
   Environment,
   Network,

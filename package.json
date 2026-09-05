@@ -48,8 +48,8 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@klappay/node": "^4.0.0",
-    "@klappay/types": "^3.7.0"
+    "@klappay/node": "^4.2.0",
+    "@klappay/types": "^4.0.0"
   },
   "peerDependencies": {
     "@walletconnect/universal-provider": "^2.23.0"

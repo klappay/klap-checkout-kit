@@ -6,6 +6,10 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
   return {
     id: 'ch_test123',
     amount: 10,
+    feePayer: 'merchant',
+    feePercent: 2,
+    feeAmount: 0.2,
+    merchantAmount: 9.8,
     amountReceived: null,
     isOverpaid: false,
     currency: 'USD',
@@ -55,5 +59,15 @@ describe('toCheckoutPayload', () => {
       makeCharge({ swapAlternatives: [{ token: 'ETH', network: 'base' }] }),
     )
     expect(payload.swapAlternatives).toEqual([{ token: 'ETH', network: 'base' }])
+  })
+
+  it('passes the fee breakdown through so an integrator can render a price breakdown', () => {
+    const payload = toCheckoutPayload(
+      makeCharge({ feePayer: 'payer', feePercent: 2, feeAmount: 0.2, merchantAmount: 9.8 }),
+    )
+    expect(payload.feePayer).toBe('payer')
+    expect(payload.feePercent).toBe(2)
+    expect(payload.feeAmount).toBe(0.2)
+    expect(payload.merchantAmount).toBe(9.8)
   })
 })

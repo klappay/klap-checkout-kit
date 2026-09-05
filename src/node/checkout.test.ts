@@ -7,6 +7,10 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
   return {
     id: 'ch_test123',
     amount: 10,
+    feePayer: 'merchant',
+    feePercent: 2,
+    feeAmount: 0.2,
+    merchantAmount: 9.8,
     amountReceived: null,
     isOverpaid: false,
     currency: 'USD',
@@ -46,15 +50,41 @@ describe('createCheckoutKit', () => {
     expect(checkout.client).toBe(client)
   })
 
-  it('surfaces transactionSender from charges.check() on the checkout payload', async () => {
+  it('surfaces transactionSender and confirmationProgress from charges.check() on the checkout payload', async () => {
     const client = createClient({ apiKey: 'klap_test_x', baseUrl: 'https://api.example.com' })
-    client.charges.check = vi
-      .fn()
-      .mockResolvedValue({ ...makeCharge(), transactionSender: '0xswapaggregator' })
+    const confirmationProgress = { network: 'base', blocksSeen: 3, blocksRequired: 12, percent: 25 }
+    client.charges.check = vi.fn().mockResolvedValue({
+      ...makeCharge(),
+      transactionSender: '0xswapaggregator',
+      confirmationProgress,
+    })
     const checkout = createCheckoutKit({ client })
 
     const payload = await checkout.checkCheckout('ch_test123')
 
     expect(payload.transactionSender).toBe('0xswapaggregator')
+    expect(payload.confirmationProgress).toEqual(confirmationProgress)
+  })
+
+  it('discriminates charge and confirmation_progress SSE events in watchCheckoutWithProgress', async () => {
+    const client = createClient({ apiKey: 'klap_test_x', baseUrl: 'https://api.example.com' })
+    const confirmationProgress = { network: 'base', blocksSeen: 3, blocksRequired: 12, percent: 25 }
+    client.charges.watchEvents = vi.fn().mockReturnValue(
+      (async function* () {
+        yield { event: 'confirmation_progress', data: confirmationProgress }
+        yield { event: 'charge', data: makeCharge({ status: 'confirmed' }) }
+      })(),
+    )
+    const checkout = createCheckoutKit({ client })
+
+    const events = []
+    for await (const event of checkout.watchCheckoutWithProgress('ch_test123')) {
+      events.push(event)
+    }
+
+    expect(events).toEqual([
+      { type: 'confirmation_progress', progress: confirmationProgress },
+      { type: 'charge', payload: expect.objectContaining({ status: 'confirmed' }) },
+    ])
   })
 })

@@ -6,6 +6,10 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
   return {
     id: 'ch_test123',
     amount: 10,
+    feePayer: 'merchant',
+    feePercent: 2,
+    feeAmount: 0.2,
+    merchantAmount: 9.8,
     amountReceived: null,
     isOverpaid: false,
     currency: 'USD',
