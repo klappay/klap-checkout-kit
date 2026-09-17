@@ -9,7 +9,11 @@ an injected wallet. See `CLAUDE.md` for the full rationale.
 Full docs (guides + a full checkout-flow walkthrough) live at
 [node-checkout-sdk.klappay.com](https://node-checkout-sdk.klappay.com),
 built from [`docs/`](./docs) — run `pnpm docs:dev` to browse them
-locally instead.
+locally instead. The site also publishes
+[`llms.txt`](https://node-checkout-sdk.klappay.com/llms.txt) and
+[`llms-full.txt`](https://node-checkout-sdk.klappay.com/llms-full.txt) —
+plain-text, LLM-friendly versions of these docs, regenerated on every
+deploy, for feeding an agent or MCP server.
 
 Want a runnable app instead of a doc page? See
 [`examples/`](https://github.com/klappay/klap-checkout-kit/tree/main/examples) —
