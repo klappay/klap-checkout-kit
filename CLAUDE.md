@@ -121,6 +121,12 @@ reachable underneath it.
 to reach a payer's browser by default. `getCharge(chargeId)` is exported
 too for anyone who wants the full raw `Charge` instead.
 
+`amountExact`/`amountReceivedExact` (decimal-string, `@klappay/types@4.1.0`)
+and `paymentUnavailable` are additive `Charge` fields that flow straight
+through onto `CheckoutPayload` — both default-normalized (`?? null`,
+`?? false`) since they're optional on `Charge` itself, for a charge
+fetched through an older Core deployment that predates them.
+
 `CreateCheckoutKitOptions` is `CreateClientOptions` (re-exported from
 `@klappay/node`, not hand-duplicated) `| { client }` — reuse before
 writing applies to the option type too, not just the logic. This is
@@ -192,10 +198,20 @@ prior duplication writeup, if that context is ever needed again).
 `@klappay/types/constants` subpath (`package.json` now has
 `"sideEffects": false`, and every pure constant lives in its own
 `*.constants.ts` file, split out from the file holding its zod schema).
-`src/node/wallet-payment.ts` imports `CHAIN_IDS`/`TOKEN_ADDRESSES`/
+`src/node/wallet-payment.ts` imports `CHAIN_IDS`/`getTokenDeployment`/
 `TOKEN_DECIMALS` straight from `@klappay/types` (the main export — no
 bundle-size concern server-side, so no reason to reach for the
-`/constants` subpath there). `src/client/permit2.ts` and
+`/constants` subpath there). `resolvePaymentOptions()` calls
+`getTokenDeployment(token, network, environment)` per accepted pair
+rather than the legacy `TOKEN_ADDRESSES` lookup, specifically for its
+`decimals` — added in `@klappay/types@4.1.0` because not every
+deployment shares the same decimals (BNB Chain's USDC/USDT are 18, not
+the 6 every other cataloged network uses); computing `amountUnits` once
+per charge with a single flat `TOKEN_DECIMALS` (as this used to) was a
+real, silent-until-it-triggers bug for any non-6-decimal pair — the
+wallet would be told to send the right-looking number at the wrong
+scale. `TOKEN_DECIMALS` stays as the fallback for a pair
+`getTokenDeployment()` has no metadata for. `src/client/permit2.ts` and
 `src/client/confirming.ts` import `CHAIN_IDS`/`ALT_TOKEN_ADDRESSES`/
 `ALT_TOKEN_DECIMALS`/`NETWORK_EXPLORERS` from `@klappay/types/constants`
 instead — measured with a real `esbuild` bundle of just
@@ -235,7 +251,10 @@ option, so that mistake fails loudly instead of producing a broken
 `createCheckoutKit().getSwapQuote(chargeId, input)` (a thin proxy to
 `client.charges.getQuote()`, same shape as `getCharge()`/`getQrCode()`)
 let a payer settle a charge with a crypto it doesn't actually accept —
-ETH/BNB/MATIC/AVAX/BTC swapped via 0x into whatever stablecoin the
+ETH/BNB/POL/AVAX/BTC/LINK/ARB/OP/CBETH (`AltTokenSchema`, `@klappay/types`
+— `POL` is Polygon's own 2024 native-currency rename of what used to be
+`'MATIC'`; `LINK`/`ARB`/`OP`/`CBETH` joined as additional trusted ERC-20
+swap inputs in a later bump) swapped via 0x into whatever stablecoin the
 charge does accept, output delivered straight to the charge's own
 `address`. There is no persisted `Quote` — `SwapQuote` is a stateless,
 on-demand computation against an existing charge (see klap-core's
@@ -252,9 +271,10 @@ no `swap`/`permit2`/0x reference anywhere in its `public/*.js`). The
 flow was built directly from 0x's own documented Permit2 guide
 (`docs.0x.org/evm/0x-swap-api/guides/permit2/...`) instead:
 
-1. If `quote.permit2` is absent (native-currency input — ETH/BNB/MATIC/
+1. If `quote.permit2` is absent (native-currency input — ETH/BNB/POL/
    AVAX), `quote.transaction` is submit-ready as-is — send it and done.
-2. If `quote.permit2` is present (ERC-20 input — today only `BTC`),
+2. If `quote.permit2` is present (ERC-20 input — `BTC`, and since
+   `@klappay/types@5.0.0` also `LINK`/`ARB`/`OP`/`CBETH`),
    Permit2 still needs a real on-chain `approve(PERMIT2_ADDRESS,
    maxUint256)` from the payer at least once per (wallet, token) pair
    before any signature-only transfer works — Permit2 pulls funds via a

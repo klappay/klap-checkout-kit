@@ -144,8 +144,8 @@ wallet that's already authorized this origin.
 
 ## Swap-to-pay: paying with a different crypto
 
-For a payer holding ETH/BNB/MATIC/AVAX/BTC instead of a stablecoin the
-charge accepts — see [Swap-to-pay](/node#swap-to-pay-paying-with-a-different-crypto)
+For a payer holding ETH/BNB/POL/AVAX/BTC/LINK/ARB/OP/CBETH instead of a
+stablecoin the charge accepts — see [Swap-to-pay](/node#swap-to-pay-paying-with-a-different-crypto)
 for `payload.swapAlternatives` and getting a `SwapQuote` from your own
 backend first. `createSwapPayment(quote, provider?)` executes it:
 
@@ -170,10 +170,10 @@ await swap.pay()
 
 `pay()` branches on whether `quote.permit2` is present:
 
-- **Native input (ETH/BNB/MATIC/AVAX)** — no `permit2` field. `pay()`
+- **Native input (ETH/BNB/POL/AVAX)** — no `permit2` field. `pay()`
   switches chain if needed, then sends `quote.transaction` as-is.
   Status goes straight from `'connecting'`/`'idle'` to `'paying'`.
-- **ERC-20 input (today, only `BTC`)** — `permit2` is present. Before
+- **ERC-20 input (`BTC`, `LINK`, `ARB`, `OP`, `CBETH`)** — `permit2` is present. Before
   signing anything, `pay()` checks whether your wallet has already
   approved the canonical Permit2 contract to move this token
   (`'checking-allowance'`) — a real on-chain `approve()` transaction is

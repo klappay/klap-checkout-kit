@@ -81,12 +81,15 @@ not a `test` one:
   "status": "pending",
   "settlementStatus": null,
   "amount": 49.9,
+  "amountExact": "49.900000",
   "feePayer": "merchant",
   "feePercent": 2,
   "feeAmount": 0.998,
   "merchantAmount": 48.902,
   "amountReceived": null,
+  "amountReceivedExact": null,
   "isOverpaid": false,
+  "paymentUnavailable": false,
   "currency": "USD",
   "environment": "test",
   "address": "0xAbC123...",
@@ -129,12 +132,15 @@ type CheckoutPayload = {
   status: ChargeStatus // 'pending' | 'partially_paid' | 'confirmed' | 'expired' | 'underpaid'
   settlementStatus: SettlementStatus | null
   amount: number
+  amountExact: string | null // decimal-string, safe from the precision loss amount's JSON number can suffer; null on an older charge that predates this field
   feePayer: ChargeFeePayer // 'merchant' | 'payer'
   feePercent: number
   feeAmount: number
   merchantAmount: number
   amountReceived: number | null
+  amountReceivedExact: string | null // decimal-string counterpart to amountReceived, same null cases
   isOverpaid: boolean
+  paymentUnavailable: boolean // true pauses payment instructions/fulfillment for this charge without changing its status — hide the pay UI (but keep polling) while it's true
   currency: string
   environment: Environment // 'live' | 'test'
   address: string
@@ -160,6 +166,14 @@ read time. `feePayer` only affects what `amount` was set to at
 creation (`'payer'` grosses it up so you still net `merchantAmount`);
 what you actually net is always `merchantAmount`, regardless of
 `feePayer`.
+
+`amountExact`/`amountReceivedExact` mirror `amount`/`amountReceived` as
+decimal strings — use them instead of the JSON `number` fields when you
+need exact precision (e.g. rendering the value yourself with a
+decimal/bignum library instead of floating-point math). `paymentUnavailable`
+lets Core pause a charge's payment instructions/fulfillment without
+changing its `status` — check it alongside `isOpenStatus(status)` before
+showing a "pay now" UI.
 
 `apiKeyId`/`externalRef`/`source`/`metadata` are deliberately left out —
 that's the merchant's own bookkeeping, not something that needs to
@@ -281,10 +295,10 @@ renderer itself; pipe the URI into whatever QR library you already use
 
 A charge only ever accepts specific `(token, network)` pairs
 (`payload.paymentOptions`) — swap-to-pay lets a payer settle it with a
-crypto it doesn't actually accept instead (ETH, BNB, MATIC, AVAX, or
-BTC), swapped via 0x into one of the accepted pairs before it ever
-reaches you. You always receive the stablecoin you configured; the
-payer covers the swap.
+crypto it doesn't actually accept instead (ETH, BNB, POL, AVAX, BTC,
+LINK, ARB, OP, or CBETH), swapped via 0x into one of the accepted pairs
+before it ever reaches you. You always receive the stablecoin you
+configured; the payer covers the swap.
 
 `payload.swapAlternatives` lists which `(token, network)` pairs are
 offerable this way for this charge — empty for a `test`-environment
@@ -292,7 +306,7 @@ charge (0x has no testnet), or if swap-to-pay isn't configured on your
 deployment:
 
 ```ts
-type SwapAlternative = { token: AltToken; network: Network } // AltToken: 'ETH' | 'BNB' | 'MATIC' | 'AVAX' | 'BTC'
+type SwapAlternative = { token: AltToken; network: Network } // AltToken: 'ETH' | 'BNB' | 'POL' | 'AVAX' | 'BTC' | 'LINK' | 'ARB' | 'OP' | 'CBETH'
 ```
 
 Once the payer picks one, request a quote from your own backend —
@@ -317,21 +331,28 @@ type SwapQuote = {
   inputToken: AltToken
   inputNetwork: Network
   inputAmount: number // ceiling the payer needs available, in whole units — a favorable price refunds the excess automatically, on-chain, same transaction
+  inputAmountExact?: string // decimal-string counterpart to inputAmount
   outputToken: Token
   outputNetwork: Network
   outputAmount: number // exactly what you receive — charge.amount - charge.amountReceived, never reduced by fees below
-  fees: { klappayFee: number; zeroExFee: number | null } // both paid by the payer on top of inputAmount, already reflected in it — shown separately for transparency
+  outputAmountExact?: string // decimal-string counterpart to outputAmount
+  fees: {
+    klappayFee: number
+    klappayFeeExact?: string
+    zeroExFee: number | null
+    zeroExFeeExact?: string | null
+  } // both paid by the payer on top of inputAmount, already reflected in it — shown separately for transparency
   expiresAt: string // ~30s UI countdown hint only — the real price guarantee is on-chain, not this timestamp
   transaction: { to: string; data: string; value: string }
-  permit2?: { eip712: Record<string, unknown> } // present only for an ERC-20 input (today, only BTC)
+  permit2?: { eip712: Record<string, unknown> } // present only for an ERC-20 input (e.g. BTC, LINK, ARB, OP, CBETH — never the chain's own native gas token)
 }
 ```
 
 Hand the quote straight to `createSwapPayment()` on the client —
 see [Swap-to-pay](/client#swap-to-pay-paying-with-a-different-crypto)
-for the wallet-signing side, including why an ERC-20 input (`BTC`)
-needs one extra on-chain approval step a native-currency input (ETH/
-BNB/MATIC/AVAX) doesn't.
+for the wallet-signing side, including why an ERC-20 input (`BTC`,
+`LINK`, `ARB`, `OP`, `CBETH`) needs one extra on-chain approval step a
+native-currency input (ETH/BNB/POL/AVAX) doesn't.
 
 ## Live status: must proxy through your own backend
 

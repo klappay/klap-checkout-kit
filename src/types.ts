@@ -19,12 +19,15 @@ export type CheckoutPayload = {
   status: ChargeStatus
   settlementStatus: SettlementStatus | null
   amount: number
+  amountExact: string | null
   feePayer: ChargeFeePayer
   feePercent: number
   feeAmount: number
   merchantAmount: number
   amountReceived: number | null
+  amountReceivedExact: string | null
   isOverpaid: boolean
+  paymentUnavailable: boolean
   currency: string
   environment: Environment
   address: string

@@ -1,6 +1,11 @@
 import type { Charge } from '@klappay/types'
 import { describe, expect, it } from 'vitest'
-import { remainingAmountUnits, resolvePaymentOptions, toTokenUnits } from './wallet-payment'
+import {
+  remainingAmount,
+  remainingAmountUnits,
+  resolvePaymentOptions,
+  toTokenUnits,
+} from './wallet-payment'
 
 function makeCharge(overrides: Partial<Charge> = {}): Charge {
   return {
@@ -42,6 +47,20 @@ describe('toTokenUnits', () => {
   it('converts a decimal amount into base units for the given decimals', () => {
     expect(toTokenUnits(10, 6)).toBe(10_000_000n)
     expect(toTokenUnits(0.5, 6)).toBe(500_000n)
+  })
+})
+
+describe('remainingAmount', () => {
+  it('returns the full amount when nothing has been received', () => {
+    expect(remainingAmount(makeCharge({ amount: 10, amountReceived: null }))).toBe(10)
+  })
+
+  it('subtracts what has already been received', () => {
+    expect(remainingAmount(makeCharge({ amount: 10, amountReceived: 4 }))).toBe(6)
+  })
+
+  it('never goes negative when overpaid', () => {
+    expect(remainingAmount(makeCharge({ amount: 10, amountReceived: 15 }))).toBe(0)
   })
 })
 
@@ -104,5 +123,25 @@ describe('resolvePaymentOptions', () => {
   it('returns no options once the charge is fully paid', () => {
     const charge = makeCharge({ amount: 10, amountReceived: 10 })
     expect(resolvePaymentOptions(charge)).toEqual([])
+  })
+
+  it("uses each pair's own deployment decimals, not a flat default", () => {
+    const charge = makeCharge({
+      amount: 10,
+      amountReceived: null,
+      environment: 'live',
+      acceptedPayments: [
+        { token: 'USDC', network: 'base' },
+        { token: 'USDT', network: 'bnb' },
+      ],
+    })
+
+    const options = resolvePaymentOptions(charge)
+
+    const base = options.find((option) => option.network === 'base')
+    const bnb = options.find((option) => option.network === 'bnb')
+    expect(base?.amountUnits).toBe(toTokenUnits(10, 6).toString())
+    expect(bnb?.amountUnits).toBe(toTokenUnits(10, 18).toString())
+    expect(bnb?.amountUnits).not.toBe(base?.amountUnits)
   })
 })

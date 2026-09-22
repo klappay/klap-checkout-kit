@@ -25,7 +25,12 @@ export type { CreateCheckoutKitOptions } from './checkout'
 export { watchCheckout, watchCheckoutWithProgress } from './events'
 export { toCheckoutPayload } from './payload'
 export { resolveRedirectUrl } from '../client/redirect-url'
-export { remainingAmountUnits, resolvePaymentOptions, toTokenUnits } from './wallet-payment'
+export {
+  remainingAmount,
+  remainingAmountUnits,
+  resolvePaymentOptions,
+  toTokenUnits,
+} from './wallet-payment'
 export {
   constructWebhookEvent,
   InvalidWebhookSignatureError,

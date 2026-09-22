@@ -70,4 +70,26 @@ describe('toCheckoutPayload', () => {
     expect(payload.feeAmount).toBe(0.2)
     expect(payload.merchantAmount).toBe(9.8)
   })
+
+  it('passes the exact decimal-string amounts through, defaulting to null when absent', () => {
+    const withExact = toCheckoutPayload(
+      makeCharge({ amountExact: '10.000000', amountReceivedExact: '4.000000' }),
+    )
+    expect(withExact.amountExact).toBe('10.000000')
+    expect(withExact.amountReceivedExact).toBe('4.000000')
+
+    const withoutExact = toCheckoutPayload(makeCharge({}))
+    expect(withoutExact.amountExact).toBeNull()
+    expect(withoutExact.amountReceivedExact).toBeNull()
+  })
+
+  it('defaults paymentUnavailable to false when the charge does not carry it', () => {
+    const payload = toCheckoutPayload(makeCharge({}))
+    expect(payload.paymentUnavailable).toBe(false)
+  })
+
+  it('passes paymentUnavailable through so an integrator can pause payment instructions', () => {
+    const payload = toCheckoutPayload(makeCharge({ paymentUnavailable: true }))
+    expect(payload.paymentUnavailable).toBe(true)
+  })
 })
