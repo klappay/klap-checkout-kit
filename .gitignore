@@ -12,3 +12,6 @@ coverage
 # would defeat that. Each example has its own .gitignore for its own
 # build output; this only needs to cover what those don't.
 examples/*/pnpm-lock.yaml
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
