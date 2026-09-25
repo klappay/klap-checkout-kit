@@ -234,8 +234,10 @@ confirmed with an isolated `esbuild` probe of just
 upstream (`klap-core`, not this repo) by splitting `addresses.ts` into
 `addresses.constants.ts` (pure, no `zod` import) and `addresses.ts`
 (just the schema) — same split `tokens.ts`/`tokens.constants.ts`
-already used. Nothing to do on this side once that patch lands; `^5.1.0`
-picks it up on the next install.
+already used, published as `@klappay/types@5.1.1`. Confirmed fixed for
+real here too, not just trusted from the upstream changelog: the same
+`esbuild` probe dropped back to ~3KB, and `pnpm build`'s IIFE output
+back to ~12KB, after bumping to `^5.1.1`.
 
 `src/client/permit2.ts`'s `CHAIN_IDS` collapses the `Environment`
 dimension at each call site (`CHAIN_IDS[network]?.live`), never `?.test`

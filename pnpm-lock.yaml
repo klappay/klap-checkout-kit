@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@klappay/node':
-        specifier: ^5.1.0
-        version: 5.1.0
+        specifier: ^5.1.1
+        version: 5.1.1
       '@klappay/types':
-        specifier: ^5.1.0
-        version: 5.1.0
+        specifier: ^5.1.1
+        version: 5.1.1
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.0
@@ -907,12 +907,12 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@klappay/node@5.1.0':
-    resolution: {integrity: sha512-XMsxmYYwc7K1UNLlr1zzaBrwaLlBver6/An0y95DkWrpoQACvMkLTIvqoYDzxNyQxt6buKtwVpsVGmYEWAz5jw==}
+  '@klappay/node@5.1.1':
+    resolution: {integrity: sha512-+js0JsGLb/qsBaxQ6QTA+CPL4UdAO4sN4uK4pw1qieuj2htjcaSurouMDIzaYzyVT2Gyrp0Nw3Shu27nUrz4Sw==}
     engines: {node: '>=24'}
 
-  '@klappay/types@5.1.0':
-    resolution: {integrity: sha512-18DX0btWbGANgbu4eb6GofXBxFad8mWCdz/9z3KDZYqSBijNxxwviWu5k3Rue/w6dXVAbAuBv7jE7+5oa89Ykw==}
+  '@klappay/types@5.1.1':
+    resolution: {integrity: sha512-T5xdWMyb5Tyw0Q84MCYbu80+kCjIqxHg6yBQC+HLRRwVMDC2y5Clbz1pEukb5oAxWrxixt7Jo636tQInbNFVzg==}
     engines: {node: '>=24'}
 
   '@manypkg/find-root@1.1.0':
@@ -3937,11 +3937,11 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@klappay/node@5.1.0':
+  '@klappay/node@5.1.1':
     dependencies:
-      '@klappay/types': 5.1.0
+      '@klappay/types': 5.1.1
 
-  '@klappay/types@5.1.0':
+  '@klappay/types@5.1.1':
     dependencies:
       zod: 3.25.76
 

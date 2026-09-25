@@ -2,7 +2,7 @@
 "@klappay/checkout-kit": minor
 ---
 
-Bump `@klappay/node` to `^5.1.0` and `@klappay/types` to `^5.1.0`, which onboard `arc` and `tron` as `Network` values.
+Bump `@klappay/node` to `^5.1.1` and `@klappay/types` to `^5.1.1`, which onboard `arc` and `tron` as `Network` values. (`5.1.0` briefly shipped a bundle-size regression in `@klappay/types`'s `/constants` subpath — fixed in `5.1.1`, see below.)
 
 `arc` is EVM-compatible (Circle's own L1, USDC as native gas), so `resolvePaymentOptions()` resolves a `chainId`/`contractAddress` for it exactly like any other EVM network — no code change needed there beyond the type bump. `getAddEthereumChainParams()` (`switchChain()`'s `wallet_addEthereumChain` fallback) now also has an Arc entry (`nativeCurrency: USDC`, public RPC at `rpc.mainnet.arc.io`/`rpc.testnet.arc.network`), and `confirmingExplorerUrl()`'s timeout table has an Arc entry.
 
