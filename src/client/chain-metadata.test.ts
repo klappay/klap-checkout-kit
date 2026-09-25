@@ -35,4 +35,23 @@ describe('getAddEthereumChainParams', () => {
     expect(params?.nativeCurrency).toEqual({ name: 'POL', symbol: 'POL', decimals: 18 })
     expect(params?.chainId).toBe('0x89')
   })
+
+  it('builds live and test params for Arc, whose gas token is USDC itself', () => {
+    const live = getAddEthereumChainParams(5042)
+    expect(live).toEqual({
+      chainId: '0x13b2',
+      chainName: 'Arc',
+      nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
+      rpcUrls: ['https://rpc.mainnet.arc.io'],
+      blockExplorerUrls: ['https://explorer.arc.io'],
+    })
+
+    const test = getAddEthereumChainParams(5042002)
+    expect(test).toEqual({
+      chainId: '0x4cef52',
+      chainName: 'Arc Testnet',
+      nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
+      rpcUrls: ['https://rpc.testnet.arc.network'],
+    })
+  })
 })

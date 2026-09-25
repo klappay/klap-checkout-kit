@@ -1,5 +1,6 @@
 import { CHAIN_IDS, TOKEN_DECIMALS, getTokenDeployment } from '@klappay/types'
 import type { Charge } from '@klappay/types'
+import { isEvmNetwork } from '../types'
 import type { PaymentOption } from '../types'
 
 export function toTokenUnits(amount: number, decimals: number = TOKEN_DECIMALS): bigint {
@@ -24,7 +25,9 @@ export function resolvePaymentOptions(charge: Charge): PaymentOption[] {
     const deployment = getTokenDeployment(pair.token, pair.network, charge.environment)
     return {
       ...pair,
-      chainId: CHAIN_IDS[pair.network]?.[charge.environment] ?? null,
+      chainId: isEvmNetwork(pair.network)
+        ? (CHAIN_IDS[pair.network][charge.environment] ?? null)
+        : null,
       contractAddress: deployment?.address ?? null,
       amountUnits: toTokenUnits(remaining, deployment?.decimals ?? TOKEN_DECIMALS).toString(),
     }

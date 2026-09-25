@@ -222,6 +222,21 @@ local copy. The full `/client` IIFE build stayed flat at ~7.3KB across
 this whole swap — confirms the fix holds through the real `tsup`
 pipeline, not just a synthetic bundle.
 
+That guarantee briefly broke upstream: `@klappay/types@5.1.0`'s
+`tokens.constants.ts` started importing `tronAddress()` (for the new
+`tron` USDT deployment) from `addresses.ts`, the same file as the
+zod-based `SplitAddressSchema` — pulling all of `zod` into
+`/constants` transitively and bloating this package's own `/client`
+IIFE from ~11KB to ~72KB, caught the same way as the original
+100KB+ regression above (eyeballing `pnpm build`'s tsup output, then
+confirmed with an isolated `esbuild` probe of just
+`import { EVM_NETWORKS } from '@klappay/types/constants'`). Fixed
+upstream (`klap-core`, not this repo) by splitting `addresses.ts` into
+`addresses.constants.ts` (pure, no `zod` import) and `addresses.ts`
+(just the schema) — same split `tokens.ts`/`tokens.constants.ts`
+already used. Nothing to do on this side once that patch lands; `^5.1.0`
+picks it up on the next install.
+
 `src/client/permit2.ts`'s `CHAIN_IDS` collapses the `Environment`
 dimension at each call site (`CHAIN_IDS[network]?.live`), never `?.test`
 — a `SwapQuote` is only ever issued for a `live` charge (0x has no
@@ -244,6 +259,25 @@ whether to show a wallet-connect button for a given option;
 `createWalletPayment()` throws immediately if handed a non-wallet-payable
 option, so that mistake fails loudly instead of producing a broken
 `eth_sendTransaction` call.
+
+`isEvmNetwork(network)` (`src/types.ts`, exported from both subpaths)
+is the type guard that makes this null-vs-mapped distinction
+type-correct now that `Network` includes `tron` — `CHAIN_IDS` (and
+this package's own `NATIVE_CURRENCIES`/`PUBLIC_RPC_URLS` in
+`chain-metadata.ts`) are keyed by `EvmNetwork`, a strict subset, since
+TRON has no `chainId`/EIP-1193 wallet flow at all (a different chain
+family, not just an unmapped one). `arc`, by contrast, *is* EVM
+(Circle's own L1; USDC is its native gas asset, exposed through an
+optional ERC-20-compatible interface rather than a separately-deployed
+contract) and is already in `EVM_NETWORKS`/`CHAIN_IDS`, so it needs no
+special-casing anywhere `isEvmNetwork()` isn't already the natural
+guard — `resolvePaymentOptions()` resolves its `chainId` exactly like
+any other EVM network. `wallet-payment.ts` and `swap.ts` both narrow
+with `isEvmNetwork()` before indexing `CHAIN_IDS` rather than casting;
+a `tron` pair resolves `chainId: null` (same "still payable, just not
+by wallet" shape as any other unmapped pair), and `createSwapPayment()`
+throws its existing "no chain mapping" error for a non-EVM
+`quote.inputNetwork` instead of producing a type error.
 
 ## Swap-to-pay: a third payment path, ported without a klap-checkout reference
 

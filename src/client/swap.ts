@@ -1,3 +1,4 @@
+import { isEvmNetwork } from '../types'
 import type { SwapQuote } from '../types'
 import { createEmitter } from './emitter'
 import {
@@ -69,7 +70,9 @@ export function createSwapPayment(
   if (!injectedProvider) {
     throw new Error('No EIP-1193 wallet provider found — is a browser wallet extension installed?')
   }
-  const liveChainId = CHAIN_IDS[quote.inputNetwork]?.live
+  const liveChainId = isEvmNetwork(quote.inputNetwork)
+    ? CHAIN_IDS[quote.inputNetwork].live
+    : undefined
   if (!liveChainId) {
     throw new Error(`No chain mapping for ${quote.inputNetwork}.`)
   }

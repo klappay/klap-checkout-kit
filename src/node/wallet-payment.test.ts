@@ -120,6 +120,42 @@ describe('resolvePaymentOptions', () => {
     })
   })
 
+  it('resolves a chain id for arc, an EVM-compatible network with no wallet-mapping gap', () => {
+    const charge = makeCharge({
+      amount: 10,
+      amountReceived: null,
+      environment: 'live',
+      acceptedPayments: [{ token: 'USDC', network: 'arc' }],
+    })
+
+    const options = resolvePaymentOptions(charge)
+
+    expect(options[0]).toMatchObject({
+      token: 'USDC',
+      network: 'arc',
+      chainId: 5042,
+      contractAddress: '0x3600000000000000000000000000000000000000',
+    })
+  })
+
+  it('leaves chain id null for tron — not EVM, so no wallet mapping exists, but still payable by address', () => {
+    const charge = makeCharge({
+      amount: 10,
+      amountReceived: null,
+      environment: 'live',
+      acceptedPayments: [{ token: 'USDT', network: 'tron' }],
+    })
+
+    const options = resolvePaymentOptions(charge)
+
+    expect(options[0]).toMatchObject({
+      token: 'USDT',
+      network: 'tron',
+      chainId: null,
+    })
+    expect(options[0]?.contractAddress).not.toBeNull()
+  })
+
   it('returns no options once the charge is fully paid', () => {
     const charge = makeCharge({ amount: 10, amountReceived: 10 })
     expect(resolvePaymentOptions(charge)).toEqual([])

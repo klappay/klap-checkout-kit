@@ -4,9 +4,12 @@ import type {
   ChargeStatus,
   ConfirmationProgress,
   Environment,
+  Network,
   SettlementStatus,
   SwapAlternative,
 } from '@klappay/types'
+import { EVM_NETWORKS } from '@klappay/types/constants'
+import type { EvmNetwork } from '@klappay/types/constants'
 
 export type PaymentOption = AcceptedPayment & {
   chainId: number | null
@@ -55,6 +58,10 @@ export function isOpenStatus(status: ChargeStatus): boolean {
 
 export function isWalletPayable(option: PaymentOption): boolean {
   return option.chainId !== null && option.contractAddress !== null
+}
+
+export function isEvmNetwork(network: Network): network is EvmNetwork {
+  return EVM_NETWORKS.some((evmNetwork) => evmNetwork === network)
 }
 
 export type {

@@ -11,6 +11,8 @@ const TIMEOUT_MS: Record<Network, number> = {
   arbitrum: 2 * 60 * 1000,
   bnb: 2 * 60 * 1000,
   avalanche: 60 * 1000,
+  arc: 60 * 1000,
+  tron: 2 * 60 * 1000,
 }
 
 function storageKey(chargeId: string): string {

@@ -1,5 +1,5 @@
 export { buildPaymentUri, encodeErc20Transfer } from '../payment-uri'
-export { isOpenStatus, isWalletPayable, OPEN_STATUSES } from '../types'
+export { isEvmNetwork, isOpenStatus, isWalletPayable, OPEN_STATUSES } from '../types'
 export type {
   AcceptedPayment,
   AltToken,

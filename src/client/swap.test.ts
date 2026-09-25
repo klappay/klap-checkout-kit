@@ -93,6 +93,12 @@ describe('createSwapPayment', () => {
     expect(() => createSwapPayment(nativeQuote, null)).toThrow(/no eip-1193/i)
   })
 
+  it('throws a clear error for a quote on a non-EVM network (tron has no chain mapping)', () => {
+    const provider = makeProvider(sufficientAllowanceRequest())
+    const tronQuote: SwapQuote = { ...nativeQuote, inputNetwork: 'tron' }
+    expect(() => createSwapPayment(tronQuote, provider)).toThrow(/no chain mapping for tron/i)
+  })
+
   it('reconnect() silently restores an already-authorized account without prompting', async () => {
     const provider = makeProvider(sufficientAllowanceRequest())
     const swap = createSwapPayment(nativeQuote, provider)
