@@ -6,6 +6,7 @@ coverage
 .env
 *.log
 .DS_Store
+.claude/settings.local.json
 
 # examples/* are standalone apps that always track @klappay/checkout-kit's
 # "latest" npm dist-tag (see examples/README.md) — a committed lockfile
