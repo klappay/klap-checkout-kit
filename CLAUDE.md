@@ -623,19 +623,19 @@ they need the user's explicit go-ahead every time.
 `docs/` is a VitePress site, same setup as klap-node's (same dark
 theme in `docs/.vitepress/theme/custom.css`, same `vitepress-plugin-llms`
 for `llms.txt`/`llms-full.txt`, same `docs.yml` GitHub Pages workflow
-gated on `docs/**` changes). No `docs/public/CNAME`/custom domain yet —
-unlike klap-node, this package has no subdomain reserved; deploys to
-the default `github.io` Pages URL until one exists, at which point add
-`docs/public/CNAME` and a `domain` option to `vitepress-plugin-llms` in
-`docs/.vitepress/config.mts`, mirroring klap-node's.
+gated on `docs/**` changes). Served at `node-checkout-sdk.klappay.com`
+(`docs/public/CNAME`, plus the matching `domain` option on
+`vitepress-plugin-llms` in `docs/.vitepress/config.mts`).
 
-`logo.png`/`docs/public/logo.png`/`docs/public/favicon.png` are copied
-byte-for-byte from `../klap-node` (identical md5 to klap-core's own
-`docs/public/logo.png` too) — the shared org-wide Klappay brand mark,
-not a fabricated asset. `docs/public/favicon.png` specifically is
-klap-node's (not klap-core's or klap-checkout's slightly different
-crops) since klap-node is the closer sibling — another SDK/toolkit
-package, not a full hosted product UI.
+`docs/public/logo.png`/`docs/public/favicon.png` and `custom.css`'s
+brand tokens (`#09090b` ink, `#d9d4cb` brand) are copied byte-for-byte
+from `../klap-node` (identical md5 to klap-core's own
+`docs/public/*.png` too) — the shared org-wide Klappay brand mark (the
+isometric "K", rebranded upstream in klap-core to match klap-site), not
+a fabricated asset. On the next rebrand, copy from klap-node again
+rather than regenerating here. There is no root `logo.png` anymore —
+`README.md` points at `docs/public/logo.png`, which still ships via the
+`docs` entry in `files`, same as klap-node.
 
 `pnpm docs:dev`/`docs:build`/`docs:preview` — same three scripts as
 klap-node. `docs` is in `package.json`'s `files` array, so it ships in
