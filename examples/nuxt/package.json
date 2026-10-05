@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@klappay/checkout-kit": "latest",
-    "@klappay/node": "^3.3.0",
+    "@klappay/node": "^5.1.4",
     "@walletconnect/universal-provider": "^2.23.0",
     "nuxt": "^4.5.2",
     "vue": "^3.5.41",

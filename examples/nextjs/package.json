@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@klappay/checkout-kit": "latest",
-    "@klappay/node": "^3.3.0",
+    "@klappay/node": "^5.1.4",
     "@walletconnect/universal-provider": "^2.23.0",
     "next": "^15.0.0",
     "react": "^19.0.0",

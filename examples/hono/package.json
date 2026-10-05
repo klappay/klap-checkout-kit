@@ -11,7 +11,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@klappay/checkout-kit": "latest",
-    "@klappay/node": "^3.3.0",
+    "@klappay/node": "^5.1.4",
     "hono": "^4.6.0"
   },
   "devDependencies": {
