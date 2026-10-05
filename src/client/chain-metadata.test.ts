@@ -1,3 +1,4 @@
+import { CHAIN_IDS } from '@klappay/types/constants'
 import { describe, expect, it } from 'vitest'
 import { getAddEthereumChainParams } from './chain-metadata'
 
@@ -41,7 +42,7 @@ describe('getAddEthereumChainParams', () => {
     expect(live).toEqual({
       chainId: '0x13b2',
       chainName: 'Arc',
-      nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
+      nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
       rpcUrls: ['https://rpc.mainnet.arc.io'],
       blockExplorerUrls: ['https://explorer.arc.io'],
     })
@@ -50,8 +51,18 @@ describe('getAddEthereumChainParams', () => {
     expect(test).toEqual({
       chainId: '0x4cef52',
       chainName: 'Arc Testnet',
-      nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
-      rpcUrls: ['https://rpc.testnet.arc.network'],
+      nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
+      rpcUrls: ['https://rpc.testnet.arc.io'],
     })
+  })
+})
+
+describe('native currency decimals', () => {
+  it('is 18 for every mapped chain, since wallet_addEthereumChain rejects anything else', () => {
+    const chainIds = Object.values(CHAIN_IDS).flatMap((ids) => Object.values(ids))
+    expect(chainIds.length).toBeGreaterThan(0)
+    for (const chainId of chainIds) {
+      expect(getAddEthereumChainParams(chainId)?.nativeCurrency.decimals).toBe(18)
+    }
   })
 })

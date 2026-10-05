@@ -402,7 +402,15 @@ no CI bundle-size gate on this repo. `nativeCurrency` (name/symbol/
 decimals per network) and a public RPC URL per (network, environment)
 are this package's own small tables — `@klappay/types` has no RPC URL
 concept, so these are the one part of the fallback this package
-genuinely owns rather than reuses. `NETWORK_EXPLORERS` only has a
+genuinely owns rather than reuses. Arc's `nativeCurrency.decimals` is
+`18`, not the `6` its ERC-20 USDC interface (`TOKEN_DEPLOYMENTS`) uses
+— Arc's native gas balance is the same USDC at 18-decimal precision
+(per Arc's own `connect-to-arc` reference), and MetaMask rejects any
+`wallet_addEthereumChain` whose `nativeCurrency.decimals` isn't 18, so
+this table had shipped a fallback that could never succeed for Arc
+until fixed. The two numbers answer different questions: `amountUnits`
+(the ERC-20 `transfer`) uses 6, the chain's gas-currency metadata uses
+18. `NETWORK_EXPLORERS` only has a
 `live` value per network (no `test` counterpart upstream), so
 `blockExplorerUrls` is included for `live` chains only and omitted for
 `test` ones rather than pointing at the wrong explorer.

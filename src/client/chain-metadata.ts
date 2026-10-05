@@ -25,7 +25,7 @@ const NATIVE_CURRENCIES: Record<EvmNetwork, NativeCurrency> = {
   polygon: { name: 'POL', symbol: 'POL', decimals: 18 },
   avalanche: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
   bnb: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-  arc: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
+  arc: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
 }
 
 const PUBLIC_RPC_URLS: Record<EvmNetwork, Partial<Record<Environment, string>>> = {
@@ -39,7 +39,7 @@ const PUBLIC_RPC_URLS: Record<EvmNetwork, Partial<Record<Environment, string>>> 
   polygon: { live: 'https://polygon-rpc.com' },
   avalanche: { live: 'https://api.avax.network/ext/bc/C/rpc' },
   bnb: { live: 'https://bsc-dataseed.binance.org' },
-  arc: { live: 'https://rpc.mainnet.arc.io', test: 'https://rpc.testnet.arc.network' },
+  arc: { live: 'https://rpc.mainnet.arc.io', test: 'https://rpc.testnet.arc.io' },
 }
 
 const ENVIRONMENTS: Environment[] = ['live', 'test']
