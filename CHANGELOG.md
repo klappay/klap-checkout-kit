@@ -1,5 +1,12 @@
 # @klappay/checkout-kit
 
+## 1.9.2
+
+### Patch Changes
+
+- 2002af8: Bumps `@klappay/types` to `^6.0.0` and `@klappay/node` to `^5.1.3`. Arc now settles through the official 0xSplits v2.2 factory, so a charge can accept `arc` alongside any other EVM network (only `tron` stays isolated). No API change: this package never referenced `NetworkFamily`/`NETWORK_FAMILIES`, and `resolvePaymentOptions()` already returns a wallet-payable option for every accepted `arc` pair, mixed or not.
+- db41b08: Fixes the `wallet_addEthereumChain` fallback for Arc: `nativeCurrency.decimals` is now `18` (Arc's native gas USDC precision) instead of `6`, which MetaMask rejected, so a wallet without Arc preloaded can add it now. Arc testnet's public RPC also moves to `https://rpc.testnet.arc.io`, the domain Arc's current docs list. Payment amounts are unaffected: `amountUnits` still uses the 6-decimal ERC-20 USDC interface.
+
 ## 1.9.1
 
 ### Patch Changes
