@@ -180,4 +180,29 @@ describe('resolvePaymentOptions', () => {
     expect(bnb?.amountUnits).toBe(toTokenUnits(10, 18).toString())
     expect(bnb?.amountUnits).not.toBe(base?.amountUnits)
   })
+
+  it('resolves arc mixed with another EVM network, sending arc USDC at its 6-decimal ERC-20 scale, not its 18-decimal native gas scale', () => {
+    const charge = makeCharge({
+      amount: 10,
+      amountReceived: null,
+      environment: 'test',
+      acceptedPayments: [
+        { token: 'USDC', network: 'arc' },
+        { token: 'USDC', network: 'base' },
+      ],
+    })
+
+    const options = resolvePaymentOptions(charge)
+
+    expect(options).toHaveLength(2)
+    expect(options.find((option) => option.network === 'arc')).toMatchObject({
+      chainId: 5042002,
+      contractAddress: '0x3600000000000000000000000000000000000000',
+      amountUnits: '10000000',
+    })
+    expect(options.find((option) => option.network === 'base')).toMatchObject({
+      chainId: 84532,
+      amountUnits: '10000000',
+    })
+  })
 })
