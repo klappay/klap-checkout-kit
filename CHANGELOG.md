@@ -1,5 +1,11 @@
 # @klappay/checkout-kit
 
+## 1.9.4
+
+### Patch Changes
+
+- aac1838: Bumps `@klappay/types` to `^6.0.1`, a description-only release (narrowed `transactionSender` semantics on `CheckChargeResponseSchema`). No schema shape or API change here.
+
 ## 1.9.3
 
 ### Patch Changes
