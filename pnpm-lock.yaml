@@ -12,8 +12,8 @@ importers:
         specifier: ^5.1.4
         version: 5.1.4
       '@klappay/types':
-        specifier: ^6.0.0
-        version: 6.0.0
+        specifier: ^6.0.1
+        version: 6.0.1
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.0
@@ -911,8 +911,8 @@ packages:
     resolution: {integrity: sha512-iqVnIUVJ608zndBpncZ9QuuKGDUKy5OVH9X/yFubTU0FNgaDdSJYkmKzkkTSdy7v+DfUMbZZWwqBEu0ARIimqA==}
     engines: {node: '>=24'}
 
-  '@klappay/types@6.0.0':
-    resolution: {integrity: sha512-83rSmHcnZnaYBNA8Mee4aX6MVyCGHtj2U32WxhUjeErdpW6PQm97fkVugZ85TYW05+WF719qy+R9JOEuubk4uQ==}
+  '@klappay/types@6.0.1':
+    resolution: {integrity: sha512-MHSk4oWjLDUsDctCbloDQugM8iPKOeO3yvHDvGb1vj5YVkV+m8KNAG5MvcxTvHOlUk48km4U4Fa4pnO3SNV/KQ==}
     engines: {node: '>=24'}
 
   '@manypkg/find-root@1.1.0':
@@ -3939,9 +3939,9 @@ snapshots:
 
   '@klappay/node@5.1.4':
     dependencies:
-      '@klappay/types': 6.0.0
+      '@klappay/types': 6.0.1
 
-  '@klappay/types@6.0.0':
+  '@klappay/types@6.0.1':
     dependencies:
       zod: 3.25.76
 

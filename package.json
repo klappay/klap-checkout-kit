@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@klappay/node": "^5.1.4",
-    "@klappay/types": "^6.0.0"
+    "@klappay/types": "^6.0.1"
   },
   "peerDependencies": {
     "@walletconnect/universal-provider": "^2.23.0"
