@@ -43,6 +43,8 @@ export type CheckoutPayload = {
 
 export type CheckedCheckoutPayload = CheckoutPayload & {
   transactionSender: string | null
+  tokenSenders: string[]
+  userOperationSenders: string[]
   confirmationProgress: ConfirmationProgress | null
 }
 

@@ -35,6 +35,8 @@ export function createCheckoutKit(options: CreateCheckoutKitOptions = {}) {
       return {
         ...toCheckoutPayload(charge),
         transactionSender: charge.transactionSender,
+        tokenSenders: charge.tokenSenders,
+        userOperationSenders: charge.userOperationSenders,
         confirmationProgress: charge.confirmationProgress,
       }
     },

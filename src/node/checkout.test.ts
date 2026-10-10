@@ -50,19 +50,23 @@ describe('createCheckoutKit', () => {
     expect(checkout.client).toBe(client)
   })
 
-  it('surfaces transactionSender and confirmationProgress from charges.check() on the checkout payload', async () => {
+  it('surfaces transactionSender, tokenSenders, userOperationSenders and confirmationProgress from charges.check() on the checkout payload', async () => {
     const client = createClient({ apiKey: 'klap_test_x', baseUrl: 'https://api.example.com' })
     const confirmationProgress = { network: 'base', blocksSeen: 3, blocksRequired: 12, percent: 25 }
     client.charges.check = vi.fn().mockResolvedValue({
       ...makeCharge(),
-      transactionSender: '0xswapaggregator',
+      transactionSender: '0xrelayer',
+      tokenSenders: ['0xpayerwallet'],
+      userOperationSenders: ['0xsmartaccount'],
       confirmationProgress,
     })
     const checkout = createCheckoutKit({ client })
 
     const payload = await checkout.checkCheckout('ch_test123')
 
-    expect(payload.transactionSender).toBe('0xswapaggregator')
+    expect(payload.transactionSender).toBe('0xrelayer')
+    expect(payload.tokenSenders).toEqual(['0xpayerwallet'])
+    expect(payload.userOperationSenders).toEqual(['0xsmartaccount'])
     expect(payload.confirmationProgress).toEqual(confirmationProgress)
   })
 

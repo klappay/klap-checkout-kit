@@ -407,10 +407,22 @@ round trip — a `429` from `client.charges.check()` means someone
 already triggered a check recently; prefer `watchCheckout()` to observe
 the result instead of polling this repeatedly.
 
-The returned payload also carries `transactionSender` — the checked
-transaction's own signer, which stays the payer's real wallet even
-when the payment routed through a swap/aggregator, unlike the credited
-transfer's own sender. `null` when no matching receipt was found.
+The returned payload also carries three pieces of on-chain evidence of
+who paid, all read from the checked transaction's own receipt:
+
+- `transactionSender` — the transaction's signer (`receipt.from`). The
+  payer's own wallet in the common case, even when the payment routed
+  through a swap/aggregator — but not when someone else submitted it on
+  the payer's behalf (a gas-sponsoring relayer behind an EIP-7702
+  wallet, or an ERC-4337 bundler).
+- `tokenSenders` — the `from` of every accepted-token transfer in that
+  receipt that paid the charge.
+- `userOperationSenders` — the ERC-4337 smart account whose own user
+  operation paid, when the transaction was a bundled user operation.
+
+`transactionSender` is `null`, and both lists `[]`, unless the checked
+transaction actually paid this charge. To match a payment against a
+known payer address, check all three, not just `transactionSender`.
 
 ## Confirmation progress: while a transfer isn't final yet
 
