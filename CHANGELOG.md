@@ -1,5 +1,21 @@
 # @klappay/checkout-kit
 
+## 1.11.0
+
+### Minor Changes
+
+- 22f0dd9: Adds `watchCheckoutEventsWithProgress(url, onEvent)` to `/client`, the browser counterpart of `watchCheckoutWithProgress()`. It opens one `EventSource`, listens to both `event: charge` and `event: confirmation_progress` in the route shape documented on the node side, and hands you the same `CheckoutEvent` union. `CheckoutEvent` and `ConfirmationProgress` are now exported from `/client` too. `watchCheckoutEvents()` keeps its exact behavior; both now read `event.data` by shape, so a global `EventSource` polyfill works with either.
+- 22f0dd9: Adds `isUserRejection(error)` to `/client`. It returns `true` when the payer declined the wallet prompt: EIP-1193 code `4001`, WalletConnect `5000`, or a "user rejected/denied" message, including when the error is wrapped in `error.cause`. Generic JSON-RPC failures such as `-32000` aren't treated as rejections. `pay()` still emits and rethrows the raw provider error unchanged.
+- 22f0dd9: `createWalletConnectProvider()` (`/client/walletconnect`) can now resume a session after a reload and recover a dropped relay connection:
+
+  - `restore(chainId?)` returns a provider for the session WalletConnect persisted in the browser, with no QR code or wallet prompt, or `null` when there's no usable session (none saved, expired, or no approved account on that chain). Pair it with `wallet.reconnect()`.
+  - `on('disconnect', ...)` fires when the session ends without you ending it: the payer disconnected in their wallet, or the session expired.
+  - `watchReconnect(onStateChange)` restarts the relay socket when the page becomes visible again (mobile browsers drop it while the payer is in their wallet app), reporting `'started'` and then `'recovered'` or `'failed'`. It only listens once called, stays idle until there's a session, and is a no-op without a `document`.
+
+### Patch Changes
+
+- 79e0647: Bumps `@klappay/types` to `^6.3.0`. No checkout-kit API changes: 6.3.0 only adds the `RecipientTransferability` schemas for the merchant-side `GET /v1/recipients/{id}/transferability` endpoint. `Charge` and every constant this package imports are unchanged, and `@klappay/types/constants` stays zod-free.
+
 ## 1.10.1
 
 ### Patch Changes
