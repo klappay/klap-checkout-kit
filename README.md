@@ -264,9 +264,8 @@ outside this package's own surface — request/response types for
 - Doesn't ship a WalletConnect modal/QR-renderer — `client/walletconnect`
   gives you the raw pairing URI via a `'uri'` event, same "bring your
   own" stance as `buildPaymentUri()`.
-- Doesn't classify wallet errors for you — `error.code === 4001` on the
-  `'error'` event means the payer rejected the transaction; anything
-  else is provider-specific.
+- Doesn't write UI copy for wallet errors — `isUserRejection(error)`
+  tells you whether the payer declined; the message you show is yours.
 - Doesn't set up a webhook endpoint for you — Core also supports signed,
   server-to-server webhooks (`charge.confirmed`, `charge.expired`, etc.)
   as an alternative/complement to polling `getCharge()`/`watchCheckout()`.

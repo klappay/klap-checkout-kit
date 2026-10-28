@@ -73,7 +73,7 @@ for (const option of payload.paymentOptions) {
 ## 4. Pay with a connected wallet
 
 ```ts
-import { createWalletPayment, saveConfirming } from '@klappay/checkout-kit/client'
+import { createWalletPayment, isUserRejection, saveConfirming } from '@klappay/checkout-kit/client'
 
 async function onWalletButtonClick(option) {
   const wallet = createWalletPayment(option, payload.address)
@@ -83,7 +83,7 @@ async function onWalletButtonClick(option) {
     showConfirmingState(txHash)
   })
   wallet.on('error', (error) => {
-    if (error.code === 4001) showRejectedState()
+    if (isUserRejection(error)) showRejectedState()
     else showGenericErrorState(error)
   })
 
@@ -108,7 +108,7 @@ app.post('/api/checkout/:id/quote', async (c) => {
 ```
 
 ```ts
-import { createSwapPayment } from '@klappay/checkout-kit/client'
+import { createSwapPayment, isUserRejection } from '@klappay/checkout-kit/client'
 
 async function onSwapButtonClick(alt) {
   // alt is one of payload.swapAlternatives — { token, network }
@@ -124,7 +124,7 @@ async function onSwapButtonClick(alt) {
     showConfirmingState(txHash)
   })
   swap.on('error', (error) => {
-    if (error.code === 4001) showRejectedState()
+    if (isUserRejection(error)) showRejectedState()
     else showGenericErrorState(error)
   })
 

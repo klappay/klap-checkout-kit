@@ -456,6 +456,10 @@ app.get('/api/checkout/:id/events', async (c) => {
 })
 ```
 
+On the browser side, `watchCheckoutEventsWithProgress()` (client
+subpath) consumes exactly this route shape — see
+[Client → With confirmation progress](/client#with-confirmation-progress).
+
 Use `watchCheckout()` if you only care about `status`/`settlementStatus`
 changes — it's unchanged and stays the simpler of the two.
 

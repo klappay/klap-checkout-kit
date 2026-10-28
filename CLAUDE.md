@@ -172,6 +172,36 @@ the browser half — a plain `EventSource` wrapper expecting `event:
 charge` / `data: <CheckoutPayload JSON>`, matching Core's own SSE
 contract shape, pointed at whatever URL the merchant's backend exposes.
 
+`watchCheckoutWithProgress()` (node) had no browser counterpart for a
+while: its documented route writes `event: <event.type>` /
+`data: JSON.stringify(event)` (the whole `CheckoutEvent`, not a bare
+`CheckoutPayload`), and `watchCheckoutEvents()` only listens to one
+event name and parses `data` as a payload — so `confirmation_progress`
+never reached a kit-built UI, and klap-checkout/klap-one each hand-rolled
+their own SSE reader for it. `watchCheckoutEventsWithProgress()` is that
+counterpart: one `EventSource`, both event names, the `CheckoutEvent`
+union rebuilt from the SSE event name (not trusted from `data.type`).
+It's a second function rather than a mode of `watchCheckoutEvents()`
+so the existing one keeps its exact contract — same split as
+`watchCheckout()`/`watchCheckoutWithProgress()` on the node side.
+Both read `event.data` through a shape check (`'data' in event`), not
+`instanceof MessageEvent`: a global `EventSource` polyfill (older
+browsers, React Native SSE shims) dispatches events that aren't
+instances of the global `MessageEvent`, and an `instanceof` guard would
+silently drop every status update for those integrators — the old
+`as MessageEvent` cast happened to accept them, so the shape check is
+what keeps that behavior while dropping the cast. Verified end to end
+(not just with the fake `EventSource` in `events.test.ts`): a fake Core
+SSE server → the real `createCheckoutKit().watchCheckoutWithProgress()`
+→ a merchant route in the documented format → the built
+`dist/client/index.js` under Node's real `EventSource`
+(`--experimental-eventsource`), and the same run against the previous
+release's client build confirmed `watchCheckoutEvents()` unchanged.
+A `fetch`-based variant (to send an `Authorization` header, which
+`EventSource` can't) was deliberately left out: that's klap-one's own
+auth model, not something a typical integrator's same-origin backend
+route needs.
+
 ## Webhook verification: re-exported, not reimplemented
 
 `verifyWebhookSignature()`/`constructWebhookEvent()` (node subpath)
@@ -508,6 +538,62 @@ plain `Error` with no `.code`, so `switchChain()`'s `isUnrecognizedChainError()`
 guard naturally never fires for it, and the original error just surfaces,
 same as any other non-4902 rejection.
 
+### Session resume and relay reconnect
+
+`createWalletConnectProvider()` also returns `restore(chainId?)`,
+`watchReconnect(onStateChange)` and a `'disconnect'` event — the
+genuinely generic part of klap-one's own WalletConnect session handling
+(which bypassed this subpath entirely to get it). Each relies on
+behavior read from `@walletconnect/universal-provider@2.23.10`'s and
+`@walletconnect/core`'s published builds, not assumed:
+
+- `UniversalProvider.init()` already restores `client.session.getAll()[0]`
+  into `provider.session` from its own storage, so `restore()` is a
+  pure check over that field — unexpired (`expiry` is in seconds),
+  at least one `eip155` account, and, when a `chainId` is passed, an
+  account on exactly `eip155:<chainId>:` (the trailing colon matters:
+  `845` must not match `84532`). No network call and no pairing URI.
+  The restored provider is the same `toEip1193Provider()` adapter
+  `connect()` returns; pair it with the controllers' existing
+  `reconnect()` (`eth_accounts`, answered locally by the sub-provider).
+- UniversalProvider emits `disconnect` only from its `session_delete`
+  handler, never from its own `disconnect()` (the sign-client deletes
+  that session with `emitEvent: false`) — so this package's
+  `'disconnect'` means "the session ended without the integrator
+  ending it": the payer disconnected in their wallet, or the
+  sign-client's expirer deleted an expired session (that path emits
+  `session_delete` too).
+- `client.core.relayer` has a public `connected` getter (socket
+  `readyState === 1`) and `restartTransport()`, which can return early
+  without reconnecting when another connection attempt is already in
+  progress — which is why `watchRelayerReconnect()`
+  (`client/walletconnect-reconnect.ts`) reports `'recovered'` only if
+  `relayer.connected` is actually true after the restart resolves, not
+  merely because the promise resolved. It runs one attempt at a time
+  (an attempt id, so a timed-out attempt resolving late can't settle a
+  newer one), times out at 10s, and its `stop()` also silences an
+  attempt still in flight. Like `discoverProviders()`, it registers
+  nothing until called and is a no-op without a `document` (SSR).
+  Three behaviors came out of a fresh-context verifier pass, each with
+  its own test: it stays idle while `universalProvider.session` is
+  undefined (core's `transportOpen()` skips connecting with no topics,
+  so an unpaired page would otherwise report `'started'`/`'failed'` on
+  every tab return); a later visibility change that finds the socket
+  back up after a reported `'failed'` reports `'recovered'` (core's own
+  `connect()` retries with backoff past the 10s timeout, and a UI
+  driven only by these states would otherwise stay on the failure);
+  and `'started'` is reported only after the timeout and the restart
+  are scheduled, so an integrator callback throwing on it can't wedge
+  the watcher with an attempt that never settles.
+
+klap-one's other WalletConnect pieces stayed there on purpose:
+unpartitioned IndexedDB storage for iframe embedding, picking among
+several saved sessions by payer address, and its first-pairing/
+new-network prompt copy are all specific to how klap-one embeds and
+identifies payers. Not verified against the live relay this time (that
+needs a Reown `projectId`, which wasn't used for this change) — the
+mocked suite plus the published-source reads above are the evidence.
+
 ## EIP-6963: no persistent listener, on purpose
 
 `discoverProviders()` (`client/eip6963.ts`) is the last of the four
@@ -562,10 +648,18 @@ for a WalletConnect-obtained provider.
 
 ## Known gaps (accepted, same as klap-checkout)
 
-- **`error.code === 4001` (user-rejected) is not specially classified**
-  — `pay()` just re-throws/emits the raw provider error, `error.code`
-  is still inspectable by the caller. No UI copy belongs in this
-  package; classifying and messaging it is left to the integrator.
+- **Controllers don't classify errors themselves** — `pay()` just
+  re-throws/emits the raw provider error. Classification is an opt-in
+  pure helper instead, `isUserRejection(error)` (`client/errors.ts`):
+  `4001` (EIP-1193), `5000` (WalletConnect `USER_REJECTED`, since this
+  package ships a WalletConnect provider too), or a "user rejected/
+  denied" message, following `error.cause` up to 5 levels for wrapped
+  errors. Added once both klap-checkout and klap-one had hand-rolled
+  the same check — every custom checkout needs "the payer said no" vs
+  "it broke". klap-one's own version also treats `-32000`/`-32602` as
+  rejections; this one deliberately doesn't — those are generic
+  JSON-RPC failures, and labeling a real failure "you cancelled" would
+  mislead the payer. Still no UI copy in this package.
 - **No re-quote-on-expiry for swap-to-pay.** `createSwapPayment()` takes
   a `SwapQuote` as a fixed input and doesn't watch its `expiresAt` —
   submitting a stale quote either reverts on-chain or 0x/the Settler
@@ -579,12 +673,14 @@ Same standard as klap-checkout: a test has to exercise real
 behavior/branching and would fail if the logic broke. Pure logic
 (`wallet-payment.ts`, `payment-uri.ts`, `client/confirming.ts`,
 `client/wallet.ts`, `client/permit2.ts`, `client/emitter.ts`,
-`client/chain-metadata.ts`, `client/eip6963.ts`) is fully unit-tested
+`client/chain-metadata.ts`, `client/eip6963.ts`, `client/events.ts`,
+`client/errors.ts`, `client/walletconnect-reconnect.ts`) is fully unit-tested
 with real fixtures (see `src/node/wallet-payment.test.ts` for the
 `Charge` fixture shape, mirroring klap-checkout's own
 `src/test/charge-fixture.ts`). DOM-only tests (`localStorage`,
 `window`/`CustomEvent`) opt into `// @vitest-environment jsdom` per
-file — the suite defaults to Node, same as klap-checkout, so a stray
+file (`walletconnect-reconnect.test.ts` too, for `document`'s
+`visibilitychange`) — the suite defaults to Node, same as klap-checkout, so a stray
 `window` global doesn't silently satisfy `assertServerOnly()` during a
 node-module test.
 

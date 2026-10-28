@@ -7,6 +7,8 @@ export type {
   CheckChargeRequest,
   CheckoutPayload,
   ChargeStatus,
+  CheckoutEvent,
+  ConfirmationProgress,
   CreateSwapQuoteInput,
   Environment,
   Network,
@@ -25,8 +27,9 @@ export {
 } from './confirming'
 export type { ConfirmingRecord } from './confirming'
 export { discoverProviders } from './eip6963'
+export { isUserRejection } from './errors'
 export type { Eip6963ProviderDetail, Eip6963ProviderInfo } from './eip6963'
-export { watchCheckoutEvents } from './events'
+export { watchCheckoutEvents, watchCheckoutEventsWithProgress } from './events'
 export { resolveRedirectUrl } from './redirect-url'
 export { createSwapPayment } from './swap'
 export type { SwapPaymentEvents, SwapPaymentStatus } from './swap'

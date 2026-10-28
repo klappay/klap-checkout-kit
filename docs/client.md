@@ -86,8 +86,9 @@ URL, block explorer) and retries the switch once — only for a network
 this package actually resolves a chain ID for; any other rejection
 (including a still-failing add) surfaces as-is. On success it emits
 `'sent'` with the transaction hash and resolves with it; on failure it
-emits `'error'` and rethrows, so `error.code === 4001` (user rejected)
-is still inspectable by your own catch block.
+emits `'error'` and rethrows the raw provider error, so it's still
+inspectable by your own catch block — see
+[Telling a rejection apart from a failure](#telling-a-rejection-apart-from-a-failure).
 
 ### Tracking busy/idle state
 
@@ -185,9 +186,10 @@ await swap.pay()
   (`'signing'`, a wallet popup, not a transaction) and submits the swap
   (`'paying'`).
 
-Same `error.code === 4001` (user-rejected) applies to both the approval
-and the signature/transaction prompts — `pay()` re-throws/emits the raw
-provider error either way, no special-casing.
+Same rejection handling applies to both the approval and the
+signature/transaction prompts — `pay()` re-throws/emits the raw provider
+error either way, no special-casing; `isUserRejection(error)` (below)
+classifies it.
 
 `quote.expiresAt` is a ~30s UI countdown hint, not enforced by this
 package — submitting late either reverts on-chain or gets re-quoted at
@@ -257,6 +259,58 @@ A plain `EventSource` wrapper expecting `event: charge` /
 and pointed at whatever URL your backend's `watchCheckout()` route
 exposes (see [Node](/node)). Reconnection on drop is the browser's
 native `EventSource` behavior — no custom backoff logic to configure.
+
+### With confirmation progress
+
+If your backend streams `watchCheckoutWithProgress()` instead (see
+[Node → Confirmation progress](/node#confirmation-progress-while-a-transfer-isn-t-final-yet)),
+consume it with `watchCheckoutEventsWithProgress()` — same single
+`EventSource`, but it listens to both `event: charge` and
+`event: confirmation_progress` and hands you the same `CheckoutEvent`
+union the node side produced:
+
+```ts
+import { watchCheckoutEventsWithProgress } from '@klappay/checkout-kit/client'
+
+const stop = watchCheckoutEventsWithProgress(`/api/checkout/${payload.id}/events`, (event) => {
+  if (event.type === 'charge') render(event.payload)
+  else showConfirmations(event.progress.percent) // blocksSeen / blocksRequired
+})
+```
+
+It expects exactly the route shape documented on the node side —
+`event: <event.type>` / `data: JSON.stringify(event)` — and takes each
+event's type from the SSE event name, not from the data body.
+`watchCheckoutEvents()` above is unchanged: keep using it with a plain
+`watchCheckout()` route.
+
+Both read `event.data` by shape, not by `instanceof MessageEvent`, so a
+global `EventSource` polyfill (older browsers, React Native SSE shims)
+works with either.
+
+## Telling a rejection apart from a failure
+
+```ts
+import { isUserRejection } from '@klappay/checkout-kit/client'
+
+wallet.on('error', (error) => {
+  if (isUserRejection(error)) showRejectedState() // the payer said no — let them retry
+  else showGenericErrorState(error)
+})
+```
+
+`true` when the payer declined the prompt in their wallet: EIP-1193
+code `4001`, WalletConnect's `5000` (`USER_REJECTED`), or a
+"user rejected" / "user denied" message from a provider that sends no
+standard code. It also follows `error.cause` (a few levels deep), so a
+rejection wrapped by another library still counts. Generic JSON-RPC
+codes such as `-32000`/`-32602` are deliberately **not** treated as
+rejections — they're real failures, and hiding them behind a "you
+cancelled" message would mislead the payer.
+
+`pay()` itself doesn't change: both controllers still emit/rethrow the
+raw provider error. `isUserRejection()` is an opt-in classifier, with
+no UI copy of its own — the message you show stays yours.
 
 ## Redirecting after confirmation
 
@@ -369,14 +423,65 @@ only installed by whoever actually imports this subpath. This subpath
 has no IIFE build either, unlike `/client` — wiring up a
 `projectId`/rendering a QR code assumes a build step already exists.
 
+### Resuming a session after a reload
+
+`@walletconnect/universal-provider` persists the pairing in the
+browser's own storage, and `createWalletConnectProvider()` picks it
+back up on init. `wc.restore(chainId?)` hands you a provider for that
+saved session — no QR code, no wallet prompt — or `null` when there's
+nothing usable to resume (no saved session, it expired, or, when you
+pass a `chainId`, the payer's wallet never approved an account on that
+chain):
+
+```ts
+const wc = await createWalletConnectProvider({ projectId, chainIds, metadata })
+wc.on('uri', (uri) => renderYourOwnQrCodeOrDeepLink(uri))
+
+if (option.chainId === null) throw new Error('not wallet-payable') // see isWalletPayable()
+
+const provider = wc.restore(option.chainId) ?? (await wc.connect())
+const wallet = createWalletPayment(option, payload.address, provider)
+await wallet.reconnect() // eth_accounts, answered locally — no popup
+```
+
+Pair a restored provider with `wallet.reconnect()`, not `connect()` —
+the session is already approved, so there's nothing to ask the payer.
+
+`wc.on('disconnect', ...)` fires when the session ends without you
+ending it — the payer disconnected in their wallet app, or the session
+expired; drop the provider and offer to pair again. Your own
+`wc.disconnect()` call doesn't fire it.
+
+### Reconnecting when the payer comes back to the tab
+
+Mobile browsers routinely kill the relay socket while the payer is in
+their wallet app approving the transaction. `wc.watchReconnect(...)`
+restarts it when the page becomes visible again:
+
+```ts
+const stop = wc.watchReconnect((state) => {
+  // 'started' → 'recovered' | 'failed'
+})
+// later, e.g. on unmount:
+stop()
+```
+
+It only listens once you call it (nothing runs at import time, and
+it's a no-op without a `document`, e.g. during SSR), stays idle until
+there's a session to keep alive, runs one restart at a time, skips it
+when the socket is still up, and reports `'failed'` when the relay
+doesn't come back within 10 seconds or is still down after the
+restart. If the relay recovers on its own after a `'failed'`, the next
+time the page becomes visible reports `'recovered'`, so a UI driven by
+these states doesn't get stuck on the failure.
+
 ## What this doesn't do
 
 - No WalletConnect modal/QR-renderer — `client/walletconnect`'s
   `'uri'` event hands you the raw pairing string, same "bring your
   own" stance as `buildPaymentUri()`.
-- No classification of wallet errors — `error.code === 4001` on the
-  `'error'` event means the payer rejected the transaction; anything
-  else is provider-specific. No UI copy belongs in this package.
+- No UI copy for wallet errors — `isUserRejection()` tells you
+  whether the payer declined; the message you show is yours.
 - No automatic re-quote when a `SwapQuote` expires — `createSwapPayment()`
   takes a fixed quote and doesn't watch `expiresAt`; fetching a fresh
   one after it lapses is on your own UI.
