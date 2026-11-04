@@ -26,7 +26,9 @@ export type CheckoutPayload = {
   feePayer: ChargeFeePayer
   feePercent: number
   feeAmount: number
+  requestedAmount: number | null
   merchantAmount: number
+  gasFeeAmount: number
   amountReceived: number | null
   amountReceivedExact: string | null
   isOverpaid: boolean

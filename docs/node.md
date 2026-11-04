@@ -84,8 +84,10 @@ not a `test` one:
   "amountExact": "49.900000",
   "feePayer": "merchant",
   "feePercent": 2,
-  "feeAmount": 0.998,
-  "merchantAmount": 48.902,
+  "feeAmount": 0.9976,
+  "requestedAmount": 49.88,
+  "merchantAmount": 48.8824,
+  "gasFeeAmount": 0.02,
   "amountReceived": null,
   "amountReceivedExact": null,
   "isOverpaid": false,
@@ -136,7 +138,9 @@ type CheckoutPayload = {
   feePayer: ChargeFeePayer // 'merchant' | 'payer'
   feePercent: number
   feeAmount: number
+  requestedAmount: number | null // what you asked for at creation, before any fee or gas; null on a charge that predates this field
   merchantAmount: number
+  gasFeeAmount: number // network gas the payer covers, already included in amount; 0 on a charge that predates gas fees
   amountReceived: number | null
   amountReceivedExact: string | null // decimal-string counterpart to amountReceived, same null cases
   isOverpaid: boolean
@@ -158,14 +162,26 @@ type PaymentOption = AcceptedPayment & {
 }
 ```
 
-`feePercent`/`feeAmount`/`merchantAmount` let you render a price
-breakdown ("price: $48.90, fee: $1.00, total: $49.90") without
-reimplementing the math — `feeAmount` is `amount * feePercent / 100`
-and `merchantAmount` is `amount - feeAmount`, both computed by Core at
-read time. `feePayer` only affects what `amount` was set to at
-creation (`'payer'` grosses it up so you still net `merchantAmount`);
-what you actually net is always `merchantAmount`, regardless of
-`feePayer`.
+`feeAmount`/`merchantAmount`/`gasFeeAmount` let you render a price
+breakdown ("price: $48.88, fee: $1.00, gas: $0.02, total: $49.90")
+without reimplementing the math — all three always add up to `amount`,
+which is the total the payer sends. `gasFeeAmount` is quoted by Core at
+creation from live gas prices, so always show `amount`, never your own
+input: `requestedAmount` echoes what you asked for. `feePayer` only
+affects what `amount` was set to at creation (`'payer'` grosses it up so
+you still net the amount you requested); what you actually net is always
+`merchantAmount`, regardless of `feePayer`. A charge created before gas
+fees existed reports `gasFeeAmount: 0`, with `feeAmount` as
+`amount * feePercent / 100` and `merchantAmount` as `amount - feeAmount`.
+
+`settlementStatus` tracks the payout to the merchant, separately from
+`status`. Besides `pending`/`completed`/`failed` it can be
+`below_minimum`: what the split holds hasn't covered the gas to pay it
+out for 24 hours, so the funds stay in the split until a new payment or
+a manual distribution. The payer has nothing to do in that state, so
+`status` remains what drives a payment UI. What's needed to distribute
+it yourself is on `Charge.selfSettlement` (`checkout.getCharge()`),
+deliberately not on this payload — it carries your payout split.
 
 `amountExact`/`amountReceivedExact` mirror `amount`/`amountReceived` as
 decimal strings — use them instead of the JSON `number` fields when you
@@ -268,8 +284,8 @@ pieces, for anyone doing their own amount math instead of trusting
 ```ts
 import { remainingAmountUnits, toTokenUnits } from '@klappay/checkout-kit/node'
 
-remainingAmountUnits(charge) // charge.amount minus charge.amountReceived, as token units (bigint) — clamped to 0n, never negative
-toTokenUnits(49.9) // a plain decimal amount → token units (bigint); optional 2nd arg overrides @klappay/types' TOKEN_DECIMALS default
+remainingAmountUnits(charge) // charge.amount minus charge.amountReceived, as token units (bigint) — clamped to 0n, never negative; reads amountExact/amountReceivedExact when present, rounds up, and an optional 2nd arg overrides the TOKEN_DECIMALS default
+toTokenUnits(49.9) // a plain decimal amount, read at up to 6 decimals (Core's amount precision) → token units (bigint); optional 2nd arg overrides @klappay/types' TOKEN_DECIMALS default
 ```
 
 ## QR codes: no round-trip needed

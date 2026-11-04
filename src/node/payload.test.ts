@@ -9,7 +9,9 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
     feePayer: 'merchant',
     feePercent: 2,
     feeAmount: 0.2,
+    requestedAmount: 10,
     merchantAmount: 9.8,
+    gasFeeAmount: 0,
     amountReceived: null,
     isOverpaid: false,
     currency: 'USD',
@@ -45,6 +47,42 @@ describe('toCheckoutPayload', () => {
     expect(payload).not.toHaveProperty('externalRef')
     expect(payload).not.toHaveProperty('source')
     expect(payload).not.toHaveProperty('metadata')
+  })
+
+  it('passes requestedAmount and gasFeeAmount through so a price breakdown adds up to amount', () => {
+    const payload = toCheckoutPayload(
+      makeCharge({
+        amount: 49.9,
+        requestedAmount: 49.88,
+        feeAmount: 0.9976,
+        merchantAmount: 48.8824,
+        gasFeeAmount: 0.02,
+      }),
+    )
+    expect(payload.requestedAmount).toBe(49.88)
+    expect(payload.gasFeeAmount).toBe(0.02)
+    expect(payload.merchantAmount + payload.feeAmount + payload.gasFeeAmount).toBeCloseTo(
+      payload.amount,
+    )
+  })
+
+  it('keeps selfSettlement out of the payload, since it carries the merchant payout split', () => {
+    const payload = toCheckoutPayload(
+      makeCharge({
+        settlementStatus: 'below_minimum',
+        selfSettlement: {
+          splitAddress: '0xabc0000000000000000000000000000000000abc',
+          recipients: [
+            { address: '0xdef0000000000000000000000000000000000def', percentAllocation: 100 },
+          ],
+          distributorFeePercent: 0,
+          salt: '0x01',
+          pairs: [{ token: 'USDC', network: 'base' }],
+        },
+      }),
+    )
+    expect(payload.settlementStatus).toBe('below_minimum')
+    expect(payload).not.toHaveProperty('selfSettlement')
   })
 
   it('passes redirectUrl through so an integrator can send the payer back after payment', () => {

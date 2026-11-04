@@ -23,6 +23,15 @@ const charge = await klap.charges.create({
 })
 ```
 
+The response's `amount` is what the payer sends: your `amount` plus a
+network `gasFeeAmount` Core quotes at creation (and, with
+`feePayer: 'payer'`, grossed up to cover the fee), so show `charge.amount`
+rather than your own input (`requestedAmount` echoes what you asked
+for). Creation can also reject with `422 amount_below_minimum` (below
+0.10 live, 5.00 live on `ethereum`, 0.01 test) or `400 validation_error`
+when `acceptedPayments` mixes `ethereum` with another network — an
+`ethereum` payment option needs its own charge.
+
 ## 2. Expose a checkout route
 
 ```ts

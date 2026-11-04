@@ -121,6 +121,13 @@ reachable underneath it.
 to reach a payer's browser by default. `getCharge(chargeId)` is exported
 too for anyone who wants the full raw `Charge` instead.
 
+`requestedAmount`/`gasFeeAmount` (`@klappay/types@7.0.0`) are required
+`Charge` fields, passed through as they are; `amount` now includes the
+gas fee, so `merchantAmount + feeAmount + gasFeeAmount` is what adds up
+to it. `selfSettlement` (same release) stays off `CheckoutPayload` on
+purpose: it carries the merchant's split and recipients, reachable
+through `getCharge()`, and isn't something a payer's browser needs.
+
 `amountExact`/`amountReceivedExact` (decimal-string, `@klappay/types@4.1.0`)
 and `paymentUnavailable` are additive `Charge` fields that flow straight
 through onto `CheckoutPayload` — both default-normalized (`?? null`,
@@ -275,6 +282,24 @@ dimension at each call site (`CHAIN_IDS[network]?.live`), never `?.test`
 testnet — see `swap-quote.ts` in klap-core), so swap-to-pay never needs
 the `test` half of the table. `src/node/wallet-payment.ts` uses both
 halves, keyed off `charge.environment`.
+
+## Token units come from exact amounts, not floats
+
+`amountUnits` used to be `remaining.toFixed(decimals)` over the JSON
+`number` fields, which is exact at 6 decimals and wrong at 18: `49.9`
+became `49899999999999998579` on BNB Chain, short of the charge. Core
+credits raw units at 18-decimal precision and requires
+`totalReceived >= amount` (`isAmountFullyPaid`, klap-core), so that
+payment would leave the charge open over dust. `resolvePaymentOptions()`
+and `remainingAmountUnits()` now do BigInt math at 18 decimals from
+`amountExact`/`amountReceivedExact`, rounding up to the token's scale —
+the same logic as klap-core's `remainingTokenUnits()`. The JSON numbers
+are only a fallback for a response without the exact fields, read at
+Core's 6-decimal amount precision, which is also why `toTokenUnits()`
+caps a `number` input there. The open/closed guard uses these exact
+units too: dust the JSON number rounds away is still open on Core, so
+`remainingAmount()` (a display `number`, left as is) can say `0` while
+`paymentOptions` still offers the rest.
 
 ## Every accepted pair is returned, not just wallet-payable ones
 
