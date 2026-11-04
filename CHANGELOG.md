@@ -1,5 +1,15 @@
 # @klappay/checkout-kit
 
+## 1.12.0
+
+### Minor Changes
+
+- f0b0b1a: Bumps `@klappay/types` to `^7.0.0` and `@klappay/node` to `^5.4.0`. `CheckoutPayload` gains `requestedAmount` and `gasFeeAmount`: a charge's `amount` now includes a gas fee the payer covers, so `merchantAmount + feeAmount + gasFeeAmount` adds up to `amount`. `SettlementStatus` gains `below_minimum`, which breaks an exhaustive `switch` over it.
+
+### Patch Changes
+
+- f0b0b1a: Fixes `amountUnits` on 18-decimal tokens (BNB Chain's USDC/USDT), where floating-point noise could ask a wallet for slightly less than the charge amount (`49.9` became `49899999999999998579`) and leave the charge open. `resolvePaymentOptions()` and `remainingAmountUnits()` now compute from `amountExact`/`amountReceivedExact` when present and round up to the token's scale; `remainingAmountUnits()` takes an optional `decimals` argument. `toTokenUnits()` no longer leaks that noise either, and reads a `number` at up to 6 decimals, Core's amount precision.
+
 ## 1.11.0
 
 ### Minor Changes
