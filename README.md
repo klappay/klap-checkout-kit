@@ -6,6 +6,8 @@ Build your own Klappay checkout UI, without reimplementing the two hard
 parts: turning a `Charge` into what a payment UI needs, and talking to
 an injected wallet. See `CLAUDE.md` for the full rationale.
 
+Part of [Klap](https://klappay.com), the non-custodial crypto payments API.
+
 Full docs (guides + a full checkout-flow walkthrough) live at
 [node-checkout-sdk.klappay.com](https://node-checkout-sdk.klappay.com),
 built from [`docs/`](./docs) — run `pnpm docs:dev` to browse them
